@@ -1,4 +1,4 @@
-# Règles du dépôt reglement-depot
+# Règles du dépôt Warden
 
 Ce dépôt porte le kit d'un règlement de dépôt et le plugin Claude Code qui le pose. Le [README](README.md) dit ce qu'il fait.
 

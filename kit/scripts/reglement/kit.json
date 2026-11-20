@@ -1,5 +1,5 @@
 {
-  "nom": "reglement-depot",
+  "nom": "warden",
   "version": "0.1.0",
   "fichiers": {
     "audit-npm-local.mjs": "edd13b53cd461245b3ce1cd409b9225cf643a86f36115d62b55dd9167a1d1590",

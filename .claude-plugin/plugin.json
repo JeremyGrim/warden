@@ -1,8 +1,10 @@
 {
-  "name": "reglement-depot",
-  "displayName": "Règlement de dépôt",
+  "name": "warden",
+  "displayName": "Warden",
   "version": "0.1.0",
   "description": "Pose dans un projet un règlement vérifié par les crochets Git (règlement, vérification de poussée, créneau, quai et train, disque), et les skills qui disent ses gestes. Rien ne s'enregistre de la session ; tout contrôle passe par Git.",
   "author": { "name": "ARKA LABS" },
+  "homepage": "https://github.com/JeremyGrim/warden",
+  "repository": "https://github.com/JeremyGrim/warden",
   "keywords": ["git", "hooks", "multi-agents", "reglement", "train", "verification"]
 }

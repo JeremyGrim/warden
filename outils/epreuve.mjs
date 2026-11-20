@@ -15,6 +15,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const DEPOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const PLUGIN = JSON.parse(readFileSync(join(DEPOT, '.claude-plugin', 'plugin.json'), 'utf8'));
 const argv = process.argv.slice(2);
 const SORTIE = resolve(argv.includes('--sortie') ? argv[argv.indexOf('--sortie') + 1] : mkdtempSync(join(tmpdir(), 'epreuve-reglement-')));
 const BAC = mkdtempSync(join(tmpdir(), 'epreuve-projets-'));
@@ -258,7 +259,7 @@ async function projetNode() {
 function rapport() {
   const echecs = controles.filter((c) => !c.ok);
   const lignes = [
-    `# Épreuve du kit reglement-depot ${JSON.parse(readFileSync(join(DEPOT, '.claude-plugin', 'plugin.json'), 'utf8')).version}`,
+    `# Épreuve du kit ${PLUGIN.name} ${PLUGIN.version}`,
     '',
     `${controles.length} contrôles, ${echecs.length} en échec. Node ${process.version}, ${process.platform}.`,
     '',

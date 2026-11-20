@@ -1,6 +1,6 @@
-# Règlement de dépôt
+# Warden
 
-Un règlement de dépôt vérifié par les crochets Git, pour un projet où plusieurs agents et des humains codent ensemble. Tout ce qui commite y passe : Claude, Codex, un humain, la fabrique. Rien ne s'enregistre de la session, et rien ne part en ligne.
+Warden est un règlement de dépôt vérifié par les crochets Git, pour un projet où plusieurs agents et des humains codent ensemble. Tout ce qui commite y passe : Claude, Codex, un humain, la fabrique. Rien ne s'enregistre de la session, et rien ne part en ligne.
 
 Le dépôt a deux étages :
 
@@ -14,11 +14,11 @@ Il faut Node 22 ou plus et Git. Les scripts n'importent que `node:*`. Le kit est
 Avec Claude Code :
 
 ```
-/plugin marketplace add <propriétaire>/reglement-depot
-/plugin install reglement-depot@reglement-depot
+/plugin marketplace add JeremyGrim/warden
+/plugin install warden@warden
 ```
 
-Puis demander de poser le règlement : le skill `reglement-poser` fait la pose et adapte la configuration en lisant le dépôt.
+Le dépôt est privé : Claude Code le clone avec les identifiants Git du poste (`gh auth login`, puis `gh auth setup-git`). Puis demander de poser le règlement : le skill `reglement-poser` fait la pose et adapte la configuration en lisant le dépôt.
 
 Sans Claude Code, depuis un clone de ce dépôt :
 
