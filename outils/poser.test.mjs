@@ -50,6 +50,7 @@ test('la pose écrit le kit, ses modèles adaptés au projet, et active les croc
   assert.deepEqual(fabrique.train.installer, { verrou: 'pnpm-lock.yaml', commande: ['pnpm', 'install', '--frozen-lockfile'] });
   assert.match(lire('AGENTS.md'), new RegExp(`Règlement du dépôt ${racine.split(/[\\/]/).pop()}`));
   assert.match(lire('.gitignore'), /^\.travail\/$/m);
+  assert.match(lire('.gitattributes'), /^\.githooks\/\* text eol=lf$/m, 'les crochets restent en LF');
   assert.equal(spawnSync('git', ['config', 'core.hooksPath'], { cwd: racine, encoding: 'utf8' }).stdout.trim(), '.githooks');
   const regle = spawnSync(process.execPath, ['scripts/reglement/reglement.mjs'], { cwd: racine, encoding: 'utf8' });
   assert.equal(regle.status, 0, `le projet posé respecte son règlement : ${regle.stderr}`);

@@ -191,6 +191,11 @@ function appliquer(racine, plan) {
   const ignore = lireTexte(join(racine, '.gitignore')) ?? '';
   const manquent = ['.travail/', '.input/'].filter((l) => !ignore.split(/\r?\n/).includes(l));
   if (manquent.length) appendFileSync(join(racine, '.gitignore'), `${ignore && !ignore.endsWith('\n') ? '\n' : ''}${manquent.join('\n')}\n`);
+  // Un crochet sh en fins de ligne Windows ne tourne plus : ceux du kit restent en LF, quel que soit le poste qui clone.
+  const attributs = lireTexte(join(racine, '.gitattributes')) ?? '';
+  if (!attributs.split(/\r?\n/).includes('.githooks/* text eol=lf')) {
+    appendFileSync(join(racine, '.gitattributes'), `${attributs && !attributs.endsWith('\n') ? '\n' : ''}.githooks/* text eol=lf\n`);
+  }
   mkdirSync(join(racine, '.travail'), { recursive: true });
   if (plan.crochets) git(racine, ['config', 'core.hooksPath', '.githooks']);
 }
