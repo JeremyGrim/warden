@@ -27,7 +27,7 @@ L'outil de pose est `<dossier de ce skill>/../../outils/poser.mjs`. Le dossier d
    - `node scripts/reglement/reglement.mjs` jusqu'à zéro écart.
    - `node --test "scripts/**/*.test.mjs"` : les gardes du kit, dont le parcours des crochets dans un projet jetable.
    - Si la personne le veut : `node scripts/reglement/verifier.mjs tout`, qui joue toutes les étapes une fois.
-7. **Commiter** seulement les fichiers posés et adaptés : `scripts/reglement/`, `.githooks/`, `config/`, `AGENTS.md`, `CLAUDE.md`, `.gitignore`. Le message dit pourquoi. Pousser seulement avec l'accord de la personne.
+7. **Commiter** seulement les fichiers posés et adaptés : `scripts/reglement/`, `.githooks/`, `config/`, `AGENTS.md`, `CLAUDE.md`, `.gitignore`, `.gitattributes`. Le message dit pourquoi. Pousser seulement avec l'accord de la personne.
 
 ## Ce qu'on dit à la fin
 

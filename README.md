@@ -32,7 +32,7 @@ La pose :
 - copie `scripts/reglement/` tel quel, avec son manifeste d'empreintes `kit.json` ;
 - pose les modèles qui manquent, adaptés au projet : la racine admet ce qui y est déjà, et la fabrique prend Rust, le gestionnaire npm et les scripts `test` et `build` ;
 - garde tel quel un modèle déjà là ;
-- ajoute `.travail/` et `.input/` à `.gitignore`, crée `.travail/` et active les crochets (`core.hooksPath .githooks`).
+- ajoute `.travail/` et `.input/` à `.gitignore`, garde les crochets en LF par `.gitattributes`, crée `.travail/` et active les crochets (`core.hooksPath .githooks`).
 
 Un script du kit retouché dans le projet, ou un fichier inconnu du kit dans `scripts/reglement/`, arrête la pose sans rien écrire. L'écart devient un réglage de `config/`, ou un correctif du kit ici.
 

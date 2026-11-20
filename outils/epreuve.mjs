@@ -91,7 +91,7 @@ async function poserLeKit(projet, adapter) {
   adapter?.(racine);
   const regle = node(racine, 'scripts/reglement/reglement.mjs');
   controler('le projet posé respecte son règlement', regle.status === 0, regle.journal);
-  git(racine, 'add', 'scripts/reglement', '.githooks', 'config', 'AGENTS.md', 'CLAUDE.md', '.gitignore');
+  git(racine, 'add', 'scripts/reglement', '.githooks', 'config', 'AGENTS.md', 'CLAUDE.md', '.gitignore', '.gitattributes');
   const commit = git(racine, 'commit', '--quiet', '-m', 'Le règlement du dépôt');
   controler('le commit du kit passe le crochet', commit.status === 0, commit.journal);
   const poussee = git(racine, 'push', 'origin', 'main');
