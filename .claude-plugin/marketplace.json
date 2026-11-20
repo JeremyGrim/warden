@@ -1,0 +1,12 @@
+{
+  "name": "reglement-depot",
+  "owner": { "name": "ARKA LABS" },
+  "description": "Le règlement d'un dépôt, vérifié par les crochets Git, et le plugin qui le pose.",
+  "plugins": [
+    {
+      "name": "reglement-depot",
+      "source": "./",
+      "description": "Le règlement d'un dépôt, vérifié par les crochets Git, et ses gestes pour les agents."
+    }
+  ]
+}

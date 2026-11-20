@@ -1,0 +1,3 @@
+#!/bin/sh
+# Le règlement sur ce qui va être commité, lu dans l'index.
+exec node scripts/reglement/reglement.mjs --index

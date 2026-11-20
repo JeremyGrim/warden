@@ -1,0 +1,13 @@
+{
+  "name": "reglement-depot",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "prepare": "git config core.hooksPath .githooks",
+    "test": "node --test \"kit/scripts/reglement/*.test.mjs\" \"outils/*.test.mjs\" \"hooks/*.test.mjs\"",
+    "empreintes": "node outils/empreintes.mjs"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "principale": "main",
+  "distant": "origin",
+  "creneau": { "nom": "creneau-poussee-main", "registre": null },
+  "verification": {
+    "rust": null,
+    "avis_npm": null,
+    "etapes": [],
+    "tout": []
+  },
+  "train": {
+    "branche": "train-vers-main",
+    "lot_max": 4,
+    "installer": null,
+    "fabriquer": null
+  }
+}

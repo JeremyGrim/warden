@@ -1,0 +1,8 @@
+#!/bin/sh
+# Git donne sur l'entrée standard ce qu'il pousse : la vérification de la poussée le lit.
+# Le règlement sur tout l'arbre, les gardes des scripts, le disque (averti seulement), puis le périmètre de la poussée.
+envoi=$(cat)
+node scripts/reglement/reglement.mjs || exit 1
+node --test "scripts/**/*.test.mjs" || exit 1
+node scripts/reglement/disque.mjs garde --avertir
+printf '%s\n' "$envoi" | node scripts/reglement/verifier.mjs poussee

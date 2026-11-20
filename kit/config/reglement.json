@@ -1,0 +1,63 @@
+{
+  "racine": {
+    "dossiers": ["docs", "config", "scripts", ".githooks"],
+    "fichiers": ["README.md", "AGENTS.md", "CLAUDE.md", ".gitignore", ".gitattributes", ".editorconfig"]
+  },
+  "obligatoires": ["README.md", "AGENTS.md", "CLAUDE.md"],
+  "lignes_max": 700,
+  "lignes_avertissement": 650,
+  "lignes_exemptes": ["Cargo.lock", "pnpm-lock.yaml"],
+  "taille_max_kio": 512,
+  "taille_exceptions": {
+    "Cargo.lock": 2048,
+    "pnpm-lock.yaml": 2048
+  },
+  "segments_interdits": [
+    "target",
+    "node_modules",
+    "dist",
+    "build",
+    "out",
+    "outputs",
+    "artifacts",
+    "coverage",
+    "tmp",
+    "temp",
+    ".input",
+    ".travail",
+    ".cache",
+    ".claude",
+    ".codex",
+    ".agents"
+  ],
+  "extensions_interdites": [
+    ".exe", ".dll", ".so", ".dylib", ".pdb", ".rlib", ".rmeta",
+    ".zip", ".7z", ".tar", ".gz", ".tgz", ".rar",
+    ".pdf", ".docx", ".pptx", ".xlsx",
+    ".mp4", ".mov", ".webm",
+    ".log", ".sqlite", ".sqlite3", ".db", ".bin"
+  ],
+  "gestionnaires_interdits": ["package-lock.json", "yarn.lock", "bun.lockb", "bun.lock"],
+  "source_unique": { "fichier": "CLAUDE.md", "renvoi": "AGENTS.md", "lignes_max": 3 },
+  "docs": {
+    "dossier": "docs/",
+    "fichiers_max": 15,
+    "noms_interdits": [
+      "^(CR|BRIEF|AUDIT|PLAN|SPEC|REC|CADRAGE|ANALYSE|ANNEXE|RECETTE|AVANCEMENT|PASSATION|HANDOFF)[-_ .]",
+      "\\d{8}",
+      "\\d{4}-\\d{2}-\\d{2}"
+    ],
+    "statuts_interdits": "statut\\s*:\\s*\\**\\s*(archiv|histori|informatif|obsol|p[ée]rim)"
+  },
+  "secrets": [
+    { "nom": "clé privée", "motif": "-----BEGIN [A-Z ]*PRIVATE KEY-----" },
+    { "nom": "jeton GitHub", "motif": "\\b(ghp|gho|ghs|ghu)_[A-Za-z0-9]{36}\\b|\\bgithub_pat_[A-Za-z0-9_]{40,}\\b" },
+    { "nom": "clé Anthropic", "motif": "\\bsk-ant-[A-Za-z0-9_-]{20,}\\b" },
+    { "nom": "clé OpenAI", "motif": "\\bsk-(proj-)?[A-Za-z0-9]{32,}\\b" },
+    { "nom": "clé AWS", "motif": "\\bAKIA[0-9A-Z]{16}\\b" },
+    { "nom": "jeton Slack", "motif": "\\bxox[baprs]-[A-Za-z0-9-]{10,}\\b" },
+    { "nom": "chemin de machine", "motif": "\\b[A-Za-z]:[\\\\/]+Users[\\\\/]+(?![\\\\/])(?!personne[\\\\/])[^\\s\"'`]+|/home/(?!personne/)[a-z][a-z0-9_-]+/|/Users/(?!personne/)[A-Za-z][A-Za-z0-9._-]+/" }
+  ],
+  "secrets_exceptions": {},
+  "code_etranger": {}
+}

@@ -1,0 +1,28 @@
+{
+  "nom": "reglement-depot",
+  "version": "0.1.0",
+  "fichiers": {
+    "audit-npm-local.mjs": "edd13b53cd461245b3ce1cd409b9225cf643a86f36115d62b55dd9167a1d1590",
+    "audit-npm-local.test.mjs": "fcb26e6ed321d55504b86744f8e657e480d22d46990beb8703084351abc57f7b",
+    "config.mjs": "6daf332ec21495b71296c9681b5506e656233bcdf8a96de3548a01520f9e5486",
+    "controles.mjs": "43baed19aeeacfca0d4e2166bf154cdd9c363bad408eb65619aea227a3f1de83",
+    "creneau.mjs": "a5aab5ba3182bdf90f688425ef8fbba78a86da29555cec31c5c7a80271f50a81",
+    "creneau.test.mjs": "216cc8735ba6b3d7d1364e70fa27e2fad8f9472ea556a650173122c7fc04134c",
+    "disque.mjs": "d1cc1cd36f31dfce4a6b6fee0c3320dcf5701951694586a42502789fdd34d3e5",
+    "disque.test.mjs": "1867a5d86de2d6f2de6fe28b2f879036e8209327eb38abaa175abade4044baaa",
+    "environnement-git.mjs": "dd05b3197a4c11074d94ff381459bc17d33803d38dcf97afd09aea36415be006",
+    "environnement-git.test.mjs": "0deaa009776d81cb08ab7de0b3e89a08502a0235d372d886490a5a4bbef2f5d9",
+    "frontieres.mjs": "9d0fdaf98229a72b5cbece770b9ee9672188e42d346bd4f4dd12dfac0127c8a5",
+    "kit.mjs": "33fac89cecc1ee3bed39a89199dacae7a49b31b3a9522414b5185748523b3efe",
+    "kit.test.mjs": "953bdb34e6f650d2f3d5f238f400225f1e820feb120150dd65eda9a170fe27ec",
+    "poussee.test.mjs": "15682cff5f3752221493331ed7ae5005bd84bb8434bb380da16602b2a2122746",
+    "priorite.mjs": "ece9afddde331547a92e6cbbbb3deb751857f03eaff644c1b3f99c1e56864523",
+    "priorite.test.mjs": "24f5a75ad960adb9cb1ad431c08631f87daee6eea4b415aabdbb127be7133e57",
+    "reglement.mjs": "62316b5f146fce3745668f7788440a60b2c1fa835caf69523afa1ee73dbd37dc",
+    "reglement.test.mjs": "240457f9c6e595e7d6cc9b40487343e79afcaa499dad8bb38e85bbf48a865c26",
+    "train.mjs": "ff7ccf9335163e40ed62129860f0fba57da6901e77a2fe64e0394d0cf06587c0",
+    "train.test.mjs": "71ebf8e4e7e9a9f2916f9bd7162ff77a48c1f1ec3a6aa6bddc83ace42327a049",
+    "verifier.mjs": "bf6a66a06f2153c9fc935476c5e6aaee45d0af8c00ca8c76d5072885483fb77a",
+    "verifier.test.mjs": "f229d8508f8befb64a9af2e3ab3debc2b9f985f7fad065d102f82af2a1cc17d3"
+  }
+}
