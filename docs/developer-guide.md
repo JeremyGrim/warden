@@ -7,7 +7,7 @@ See [Architecture](architecture.md). The kit is under `kit/`, the installer and 
 ## Changing the kit
 
 1. Change the script and its guard together. A guard carries its own data; it never reads a host project's configuration.
-2. Print text through `t('key', vars)`. Add the key to both `messages.en.mjs` and `messages.fr.mjs`, with the same placeholders.
+2. Print text through `t('key', vars)`. Add the key to both `messages.en.mjs` and `messages.fr.mjs`, with the same placeholders; a text of the interface page (`ui.*`) goes to `messages-ui.en.mjs` and `messages-ui.fr.mjs`.
 3. A test that creates Git repositories imports `./git-env.mjs` first, and is listed in `git-env.test.mjs`.
 4. A step the kit launches goes through `run()` from `config.mjs`. It never inherits `NODE_TEST_CONTEXT`, and Windows `.cmd` programs go through the shell.
 5. Raise the version in `.claude-plugin/plugin.json`, the only source of the version.

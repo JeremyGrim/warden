@@ -23,7 +23,7 @@ import { fileURLToPath } from 'node:url';
 
 import { FACTORY_DEFAULTS, readFactory, ROOT, run, runCaptured, stationSetting } from './config.mjs';
 import { freeMemory, stationProcesses } from './disk.mjs';
-import { clearHalt, clearRefusal, continuedHalt, dockFolder, dockKey, haltHolds, readDock, readHalt, readyDeposits, whileHalted, writeHalt, writeRefusal } from './dock.mjs';
+import { clearHalt, clearRefusal, clearTrain, continuedHalt, dockFolder, dockKey, haltHolds, readDock, readHalt, readyDeposits, whileHalted, writeHalt, writeRefusal, writeTrain } from './dock.mjs';
 import { appendHistory, historyPath } from './history.mjs';
 import { t } from './messages.mjs';
 import { EXIT_HALTED, EXIT_INCOMPLETE, failureClass, firstError, refusal, transientCause } from './outcome.mjs';
@@ -253,12 +253,15 @@ async function runTrain(argv, factory) {
   const tool = stationSetting('tasks');
   const note = (task, text) => tool && run(noteCommand(tool, agent, task, text), { encoding: 'utf8' });
   const begin = Date.now();
+  // What the interface shows of a train under way (dock.mjs, TRAIN).
+  const showProgress = (title) => !dryRun && writeTrain(dock, { pid: process.pid, began: new Date(begin).toISOString(), batch: batch.map((d) => d.name), trial: stats.trials, step: title, step_began: new Date().toISOString() });
   const stats = { steps: {}, trials: 0 };
   const notRun = new Set();
   let pushed = false;
   let mainSha = null;
   let readyList = [];
   let halted = null;
+  let stopped = false;
   let batch = [];
   let up = [];
   const refused = [];
@@ -341,6 +344,7 @@ async function runTrain(argv, factory) {
     // workstation is replayed once; the verification replays its own steps, and reports them in WARDEN_REPORT.
     const step = async (title, command, { input = null, kind = 'check' } = {}) => {
       say(`\n▶ ${title}`);
+      showProgress(title);
       const began = Date.now();
       const report = kind === 'verify' ? join(tmpdir(), `warden-report-${process.pid}-${Date.now()}.jsonl`) : null;
       const env = report ? { ...process.env, WARDEN_REPORT: report } : process.env;
@@ -511,7 +515,10 @@ async function runTrain(argv, factory) {
     clearHalt(dock);
     return true;
   } catch (error) {
-    if (!(error instanceof Halt)) throw error;
+    if (!(error instanceof Halt)) {
+      stopped = true;
+      throw error;
+    }
     // Halted: the refusals found before any trial (a conflict with the main branch, an unreadable deposit) stand; no
     // trial refuses anyone. The halt says why, on which commit of the main branch, and for which dock.
     halted = error.halt.class;
@@ -528,11 +535,13 @@ async function runTrain(argv, factory) {
         steps: Object.fromEntries(Object.entries(stats.steps).map(([k, s]) => [k, Math.round(s * 10) / 10])),
         up: up.filter((d) => !d.own).map((d) => ({ name: d.name, branch: d.branch, commit: d.tip, waited_s: Math.round((Date.now() - d.moment) / 1000) })),
         out: refused.map(({ deposit, result }) => ({ name: deposit.name, class: result.class })),
-        waiting: pending.length, halted, not_run: [...notRun], seconds: (Date.now() - begin) / 1000,
+        waiting: pending.length, pending: pending.map((d) => d.name), halted, outcome: halted ? 'halted' : stopped ? 'stopped' : 'done', not_run: [...notRun], seconds: (Date.now() - begin) / 1000,
+        log: `train-logs/${trainStamp}.log`,
       }, { keepDays: factory.history.keep_days });
     }
     if (git(['rev-parse', '-q', '--verify', 'CHERRY_PICK_HEAD']).ok) git(['cherry-pick', '--abort']);
     git(['checkout', '--quiet', '-f', start]);
+    if (!dryRun) clearTrain(dock);
     try {
       unlinkSync(startRecord());
     } catch {

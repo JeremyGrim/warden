@@ -109,6 +109,14 @@ The same halt again, with the same class, reason and step, keeps the moment it b
 
 `watch` returns as soon as a train is worth leaving, checking once a minute. Past `train.halt_notice_minutes` (30) since the halt began, it returns once with exit code 75 and the cause, so that whoever can act hears it: the person for the memory or a missing tool, the agents for a red main branch. A train that completes lifts the halt.
 
+## What a train leaves
+
+- **While it runs**, `.work/train-ready/_train.json`: its batch, its trial, its step, rewritten at each step and removed at its end. A file whose process is gone is an interrupted train; the next one recovers it.
+- **When it ends**, a line in `.work/warden-history.jsonl`:
+  - its base, batch and trials, and the time of each step;
+  - what went up and after how long; what was set aside, with its class; what waits for a neighbour (`pending`);
+  - the halt, how the train ended (`outcome`: `done`, `halted` or `stopped` by an error), what was not run, and its log.
+
 ## Scenarios
 
 The train tree keeps the build of the last trial, which may be a combination that failed; and the tree goes back where it left from at the end. A journey is never played there. The factory builds the pushed commit in a separate tree (a worktree or a clone of that commit), plays the journey, and notes the result with the commit.

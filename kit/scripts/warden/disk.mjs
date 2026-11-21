@@ -3,6 +3,7 @@
 // workstation (never committed).
 //
 //   node scripts/warden/disk.mjs report [--root <repo>]... [--build <folder>]...
+//   node scripts/warden/disk.mjs report --json [--quick]               this tree, for the interface
 //   node scripts/warden/disk.mjs guard  [--warn]
 //   node scripts/warden/disk.mjs clean  [--deep] [--apply] [--root <repo>]... [--build <folder>]...
 //   node scripts/warden/disk.mjs clean  --own [--deep] [--apply]     the factory tree alone, from the factory tree
@@ -433,7 +434,20 @@ function treeLine(tree) {
   return `    ${tree.path} [${tree.branch}], ${t('disk.tree.age', { days: tree.ageDays })}, ${state}`;
 }
 
+// `--json`: this tree's measures for whoever reads them (the interface), with the budgets they are held against and the
+// memory free to commit. Sizes in bytes; `memory` is null when the workstation does not say.
+// `--quick` leaves the sizes out (no folder is walked): the free space, the trees and their alerts, in a second.
+export async function reportJson(root, config, { quick = false } = {}) {
+  const { alerts, free, trees, measures } = await evaluate({ root, config, quick });
+  const budgets = Object.fromEntries(['min_free_gib', 'max_build_gib', 'max_incremental_gib', 'max_worktrees', 'max_worktree_age_days'].map((key) => [key, config[key] ?? null]));
+  return { root, quick, free, budgets, measures: quick ? null : measures, trees, alerts, memory: quick ? null : freeMemory() };
+}
+
 async function reportCommand(argv, config) {
+  if (argv.includes('--json')) {
+    console.log(JSON.stringify(await reportJson(ROOT, config, { quick: argv.includes('--quick') }), null, 2));
+    return;
+  }
   for (const root of requestedRoots(argv, config)) {
     if (!existsSync(root)) {
       console.log(t('disk.report.absent', { root }));

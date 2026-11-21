@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 // tests pass.
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const TESTS_THAT_CREATE_REPOSITORIES = ['scripts/warden/disk.test.mjs', 'scripts/warden/rules.test.mjs', 'scripts/warden/status.test.mjs', 'scripts/warden/hooks.test.mjs'];
+const TESTS_THAT_CREATE_REPOSITORIES = ['scripts/warden/disk.test.mjs', 'scripts/warden/rules.test.mjs', 'scripts/warden/status.test.mjs', 'scripts/warden/hooks.test.mjs', 'scripts/warden/ui.test.mjs'];
 
 function git(cwd, ...args) {
   const out = spawnSync('git', ['-c', 'user.name=witness', '-c', 'user.email=witness@example.test', ...args], { cwd, encoding: 'utf8' });

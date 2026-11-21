@@ -107,3 +107,4 @@ Every default comes from one workstation: size them for yours.
 | `git config warden.tasks <tool>` | The task tool, following the five-gesture contract |
 | `git config warden.ghsa <clone>` | The clone of the advisory database (`WARDEN_GHSA_DATABASE` comes first) |
 | `git config warden.locale en\|fr` | The display locale (`WARDEN_LOCALE` comes first) |
+| `git config --global --add warden.projects <path>` | A project the interface covers, by its main root; one value per project, common to every clone of the workstation |

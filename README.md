@@ -1,6 +1,6 @@
 # Warden
 
-[![Version](https://img.shields.io/badge/version-0.4.2-c71244)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.4.3-c71244)](CHANGELOG.md)
 [![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-d97757)](https://code.claude.com/docs/en/plugins/overview)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22-339933.svg?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Dependencies](https://img.shields.io/badge/dependencies-none-2ea44f)](docs/architecture.md)
@@ -45,12 +45,14 @@ The repository is private: Claude Code clones it with the workstation's Git cred
 
 Then ask the agent to set Warden up in your project. The `/warden:setup` skill installs the kit and adapts its configuration by reading the repository.
 
-Without Claude Code, from a clone of this repository:
+Without Claude Code, straight from the repository (npx clones it with the same Git credentials):
 
 ```bash
-node tools/install.mjs <project> --dry-run
-node tools/install.mjs <project>
+npx github:JeremyGrim/warden setup <project> --dry-run
+npx github:JeremyGrim/warden setup <project>
 ```
+
+`install` is the same command. From a clone of this repository, `node tools/install.mjs <project>` does the same.
 
 The installer copies `scripts/warden/` as is, with its fingerprint manifest. It installs the missing models (`AGENTS.md`, `CLAUDE.md`, `.githooks/`, `config/`) adapted to the project, keeps the existing ones as they are, and turns the hooks on. Each clone turns its hooks on once: `git config core.hooksPath .githooks`.
 
@@ -116,6 +118,17 @@ Every section is optional. See [Configuration](docs/configuration.md).
 
 See [Merge train](docs/merge-train.md).
 
+## The interface
+
+The person follows every project of the workstation from one local page: what each train did, what is under way, and only what waits for them. It runs the gestures that bypass nothing: a dry run, the factory's own cleanup, a release, turning the hooks on, the workstation settings.
+
+```bash
+node scripts/warden/ui.mjs
+npx github:JeremyGrim/warden ui
+```
+
+It listens on 127.0.0.1 only, behind a token, and loads nothing from outside. See [Interface](docs/interface.md).
+
 ## Language
 
 English is canonical for:
@@ -140,6 +153,7 @@ The installer writes `AGENTS.md` and `CLAUDE.md` in the resolved locale (`--loca
 - [Agent guide](docs/agent-guide.md)
 - [Factory guide](docs/factory-guide.md)
 - [Merge train](docs/merge-train.md)
+- [Interface](docs/interface.md)
 - [Build cache](docs/build-cache.md)
 - [Configuration](docs/configuration.md)
 - [Skills and agent](docs/skills.md)

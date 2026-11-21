@@ -9,6 +9,7 @@
   - the npm advisories are compared to a local clone of the public GitHub Advisory Database;
   - `cargo deny` downloads the public RustSec database and compares it locally.
 - **No telemetry.**
+- **The interface** (`ui.mjs`) listens on 127.0.0.1 only, answers only its own names, and asks every call for the random token of its address. Its content policy loads nothing from outside; it reads the work folder only, and runs only the gestures of [Interface](interface.md).
 
 ## Secrets
 

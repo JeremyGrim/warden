@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 
 import { readFactory, ROOT, stationSetting } from './config.mjs';
 import { loadConfig } from './disk.mjs';
-import { dockFolder, isRefused, readDock, readHalt } from './dock.mjs';
+import { dockFolder, isRefused, readDock, readHalt, readTrain } from './dock.mjs';
 import { historyPath, readHistory, summarize } from './history.mjs';
 import { resolveLocale, t } from './messages.mjs';
 import { holder } from './slot.mjs';
@@ -53,7 +53,7 @@ export function collectStatus({ root = ROOT, agent = null } = {}) {
     factory_fixes: factory.fixes,
     slot: slot ? { folder: slot, holder: holder(slot) } : null,
     // A halted train is every agent's business: a red main branch is repaired by a deposit like any other.
-    dock: dock ? { folder: dock, ready: deposits.filter((d) => !isRefused(d)).map(brief), refused: deposits.filter(isRefused).map(brief), halt: readHalt(dock) } : null,
+    dock: dock ? { folder: dock, ready: deposits.filter((d) => !isRefused(d)).map(brief), refused: deposits.filter(isRefused).map(brief), halt: readHalt(dock), train: readTrain(dock) } : null,
     mine: mine.map(brief),
     task_tool: stationSetting('tasks', root) ? 'set' : null,
     shared_build_cache: existsSync(join(root, 'Cargo.toml')) ? loadConfig(root).shared_caches.map((c) => c.path) : null,

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.3 - 2026-11-21
+
+### Added
+
+- **The interface** (`ui.mjs`, `ui.html`, `ui.css`, `ui-*.mjs`): a local page for the person, served by the kit, covering every project of the workstation (`git config --global warden.projects`), each read by its own kit. It shows what waits for the person and nothing else, the train under way or its halt, the dock, the history and its measures, the disk, the kit, the version, the releases and the configuration. It runs only the gestures that bypass nothing: a dry run, the factory's own cleanup, reading the version, a release, turning the hooks on, the workstation settings, and marks kept in the clone's Git folder. It listens on 127.0.0.1 only, behind the token of its address, and loads nothing from outside. See `docs/interface.md`.
+- **`npx github:JeremyGrim/warden setup|install|ui`** (`tools/cli.mjs`): the kit installed, or the interface opened, without the Claude Code plugin and without publishing anything.
+- `disk.mjs report --json [--quick]`: the disk measures, the trees, the alerts and the memory free to commit, for the interface.
+- The train under way in `.work/train-ready/_train.json`, given by `status.mjs` (`dock.train`, with whether its process lives).
+- Each train line of the history says how it ended (`outcome`: `done`, `halted`, `stopped`), which branches wait for a neighbour (`pending`), and its log.
+
 ## 0.4.2 - 2026-11-21
 
 ### Fixed

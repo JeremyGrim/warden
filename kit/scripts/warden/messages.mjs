@@ -11,8 +11,11 @@ import { spawnSync } from 'node:child_process';
 
 import { EN } from './messages.en.mjs';
 import { FR } from './messages.fr.mjs';
+import { UI_EN } from './messages-ui.en.mjs';
+import { UI_FR } from './messages-ui.fr.mjs';
 
-export const CATALOGS = { en: EN, fr: FR };
+// The interface page has its own catalogs (messages-ui.*.mjs): the same keys space, `ui.*`.
+export const CATALOGS = { en: { ...EN, ...UI_EN }, fr: { ...FR, ...UI_FR } };
 const SUPPORTED = Object.keys(CATALOGS);
 
 const pick = (value) => {

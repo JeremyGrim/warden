@@ -22,6 +22,6 @@ This repository holds the Warden kit and the Claude Code plugin that installs it
 
 ## The repository
 
-- 700 lines at most per file. Code, documentation and skills are in English; the French catalog and the French models (`*.fr.md`) are the only French files.
+- 700 lines at most per file. Code, documentation and skills are in English; the French catalogs (`messages*.fr.mjs`) and the French models (`*.fr.md`) are the only French files.
 - Run the guards with `npm test` before each commit, and `node tools/e2e.mjs` before each version.
 - Work is done when an executed proof shows it. Otherwise write **NOT DONE**, and say first what is not proven.

@@ -11,7 +11,7 @@ warden (this repository)
 │   ├── .githooks/             pre-commit, pre-push (models)
 │   ├── config/                rules.json, factory.json, disk.json, deny.toml (models)
 │   └── AGENTS.md, CLAUDE.md   rule text models, English and French
-├── tools/                     install.mjs, fingerprints.mjs, e2e.mjs
+├── tools/                     cli.mjs (npx warden), install.mjs, fingerprints.mjs, e2e.mjs
 ├── skills/                    the Claude Code skills
 ├── agents/factory.md          the factory profile
 ├── hooks/                     the session-start hook
@@ -37,6 +37,7 @@ warden (this repository)
 | `history.mjs` | The local history of pushes, guards, trains and releases, and its summary |
 | `status.mjs` | The state an agent or the factory reads; the history summary |
 | `disk.mjs`, `priority.mjs` | Disk budgets and cleaning; CPU priority during a train |
+| `ui.mjs`, `ui.html`, `ui.css`, `ui-*.mjs` | The interface: a local server on 127.0.0.1 and its page, with no outside resource ([Interface](interface.md)) |
 | `npm-audit.mjs` | npm advisories against a local database clone |
 | `config.mjs`, `messages*.mjs` | Reading the project configuration and workstation settings; display text in English and French |
 | `git-env.mjs`, `kit.mjs` | Test isolation from an inherited `GIT_DIR`; the fingerprints |

@@ -11,6 +11,9 @@ import { appendFileSync, existsSync, readdirSync, readFileSync, rmSync, statSync
 import { dirname, join } from 'node:path';
 
 export const HALT = '_halt.json';
+// The train under way: its batch, its trial, its step, rewritten at each step and removed at its end. A file left by a
+// train whose process is gone says an interrupted train, which the next one recovers.
+export const TRAIN = '_train.json';
 export const dockFolder = (slot, factory) => join(dirname(slot), factory.train.dock);
 export const refusalPath = (dock, name) => join(dock, name.replace(/\.txt$/, '.refusal.json'));
 
@@ -93,6 +96,22 @@ export function clearRefusal(dock, name) {
 export const dockKey = (deposits) => deposits.map((d) => `${d.name}@${d.commit ?? ''}`).sort().join(',');
 
 export const readHalt = (dock) => readJsonFile(join(dock, HALT));
+export const writeTrain = (dock, train) => writeFileSync(join(dock, TRAIN), `${JSON.stringify(train, null, 2)}\n`);
+export const clearTrain = (dock) => rmSync(join(dock, TRAIN), { force: true });
+
+// The train under way as the status gives it, with whether its process still lives.
+export function readTrain(dock) {
+  const train = readJsonFile(join(dock, TRAIN));
+  if (!train) return null;
+  let alive = false;
+  try {
+    process.kill(train.pid, 0);
+    alive = true;
+  } catch (error) {
+    alive = error.code === 'EPERM';
+  }
+  return { ...train, alive };
+}
 export const writeHalt = (dock, halt) => writeFileSync(join(dock, HALT), `${JSON.stringify(halt, null, 2)}\n`);
 export const clearHalt = (dock) => rmSync(join(dock, HALT), { force: true });
 

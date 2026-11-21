@@ -12,7 +12,7 @@
 // The report: <output>/report.md and <output>/verdicts.json, and the log of each step in <output>/logs/.
 // A broken step is reported as a check, and the trial goes on.
 
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -108,8 +108,9 @@ async function installKit(project, adapt) {
   git(root, 'add', '-A');
   git(root, 'commit', '--quiet', '-m', 'The project, before the rules');
   git(root, 'push', '--quiet', 'origin', 'main');
-  const install = node(root, join(REPO, 'tools', 'install.mjs'), root);
-  check('the install succeeds', install.status === 0, install.log);
+  // Through the command npx runs (tools/cli.mjs), as whoever installs without the plugin.
+  const install = node(root, join(REPO, 'tools', 'cli.mjs'), 'setup', root);
+  check('warden setup installs the kit', install.status === 0, install.log);
   check('the kit and its models are installed', ['scripts/warden/kit.json', 'config/rules.json', 'config/factory.json', '.githooks/pre-push', 'AGENTS.md'].every((c) => existsSync(join(root, c))));
   adapt?.(root);
   const rules = node(root, 'scripts/warden/rules.mjs');
@@ -434,6 +435,55 @@ async function nodeOnly() {
     const third = node(root, 'scripts/warden/train.mjs', 'run', '--agent', 'factory');
     const kept = readJson(haltFile);
     check('a train that halts again keeps it said, and its beginning', third.status === 75 && kept?.noticed === true && kept.at === moved, third.log);
+  });
+  await step('B. The interface reads every project and runs only what bypasses nothing', async () => {
+    // The workstation list of projects lives in the global Git configuration: the trial gives it its own.
+    const globalConfig = join(TRAY, 'gitconfig-interface');
+    writeFileSync(globalConfig, `[warden]\n\tprojects = ${join(TRAY, 'rust-node').replaceAll('\\', '/')}\n`);
+    const child = spawn(process.execPath, ['scripts/warden/ui.mjs', '--no-open'], { cwd: root, env: { ...ENV, GIT_CONFIG_GLOBAL: globalConfig }, windowsHide: true });
+    try {
+      const address = await new Promise((done, fail) => {
+        let out = '';
+        child.stdout.on('data', (chunk) => {
+          out += chunk;
+          const m = /http:\/\/127\.0\.0\.1:(\d+)\/#t=([0-9a-f]+)/.exec(out);
+          if (m) done(m);
+        });
+        child.on('exit', () => fail(new Error(out)));
+        setTimeout(() => fail(new Error(`no address: ${out}`)), 30000);
+      });
+      const [, port, token] = address;
+      const api = async (path, { method = 'GET', body = null, auth = true } = {}) => {
+        const headers = { ...(auth ? { 'x-warden-token': token } : {}), ...(body ? { 'Content-Type': 'application/json' } : {}) };
+        const r = await fetch(`http://127.0.0.1:${port}${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
+        return { status: r.status, text: await r.text() };
+      };
+      const json = async (...args) => JSON.parse((await api(...args)).text);
+      const here = encodeURIComponent(root);
+      check('the interface is served on 127.0.0.1, and refuses a call without its token', (await api('/api/projects', { auth: false })).status === 403);
+      const page = await api('/', { auth: false });
+      check('the page comes from the kit, with nothing to load from outside', page.status === 200 && page.text.includes('ui-app.mjs') && !/(src|href)=["']?https?:/i.test(page.text), page.text.slice(0, 200));
+      const list = await json('/api/projects');
+      const names = list.projects.map((p) => `${p.name}:${p.ok}:${p.kit?.version}`).sort().join(', ');
+      check('both projects of the workstation are read, each by its own kit', names === `node-only:true:${PLUGIN.version}, rust-node:true:${PLUGIN.version}`, names);
+      const kinds = list.cases.filter((c) => c.project === list.projects.find((p) => p.here).path).map((c) => c.kind);
+      check('what waits for the person: the halt said once, the release not published', kinds.includes('halt_incomplete') && kinds.includes('release'), JSON.stringify(kinds));
+      const detail = await json(`/api/project?path=${here}&days=7`);
+      const last = detail.history.filter((e) => e.kind === 'train').at(-1);
+      check('the history says how the last train ended, and where its log is', last?.outcome === 'halted' && typeof last.log === 'string', JSON.stringify(last));
+      const log = await json(`/api/file?path=${here}&file=${encodeURIComponent(last.log)}`);
+      check('the log of a train opens, read only, inside the work folder', log.content?.includes('could not run') && (await api(`/api/file?path=${here}&file=..%2Fpackage.json`)).status === 404);
+      const shown = await json(`/api/run?path=${here}`, { method: 'POST', body: { gesture: 'version.show' } });
+      check('a gesture runs the kit command and gives its output and code', shown.code === 0 && shown.command === 'node scripts/warden/version.mjs show' && /0\.1\.\d/.test(shown.output), JSON.stringify(shown));
+      const refused = await api(`/api/run?path=${here}`, { method: 'POST', body: { gesture: 'train.recover' } });
+      check('a gesture outside the list is refused before anything runs', refused.status === 400, refused.text);
+      const release = list.cases.find((c) => c.kind === 'release' && c.project === list.projects.find((p) => p.here).path);
+      await api(`/api/mark?path=${here}`, { method: 'POST', body: { label: release.vars.label, published: true } });
+      const after = await json('/api/projects');
+      check('a release marked published on the person\'s word no longer waits', !after.cases.some((c) => c.id === release.id));
+    } finally {
+      child.kill();
+    }
   });
 }
 
