@@ -13,6 +13,8 @@ An agent never infers the project state, its role or its identity. It reads them
 6. If a task tool is set, read your tasks with its `status` gesture.
 7. Report in five lines, then work.
 
+![A refused deposit carries a structured refusal; its author fixes, commits, and the deposit leaves again on the new commit.](images/10-fix-and-redock.png)
+
 ## While working
 
 - Commit only your own files. Never `git add -A`, `--force` or `--no-verify`.

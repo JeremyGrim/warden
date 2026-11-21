@@ -2,6 +2,8 @@
 
 ## Two layers
 
+![Two layers: the kit lives in each project and Git runs it; the Claude Code plugin installs it and carries the skills and the factory agent.](images/06-two-layers.png)
+
 ```text
 warden (this repository)
 ├── kit/                       copied into each project, committed with it

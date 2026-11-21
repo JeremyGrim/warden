@@ -31,6 +31,8 @@ Two pending deposits at most per agent. The train takes exactly the docked `comm
 
 ## Classes
 
+![Six result classes. Violation, defect and conflict with main blame the branch; transient, incomplete and baseline blame nobody.](images/04-result-classes.png)
+
 Every failed step gets one class, and the class decides what follows, without a person (`outcome.mjs`).
 
 | Class | What it means | What follows |
@@ -44,7 +46,11 @@ Every failed step gets one class, and the class decides what follows, without a 
 
 A project adds its own incident patterns with `verify.transient_patterns`.
 
+![How a failed step is classified: rules give a violation; an incident is replayed once, then judged on main alone. A halt is transient, or baseline if main itself is red. A missing check is recorded or blocks; a missing tool in the train's own steps always halts. Anything else is a defect.](images/09-failed-step.png)
+
 ## A train
+
+![The factory stacks up to four docked branches, runs one trial, finds a culprit by halves, pushes the rest, and halts without blaming anyone when the main branch fails on its own.](images/03-merge-train.png)
 
 `node scripts/warden/train.mjs run --agent <factory name>` runs one train. Exit code: 0 done, 1 stopped by an error, 75 halted.
 
@@ -74,7 +80,11 @@ Each train writes its whole output to `.work/train-logs/<date>.log`, and one lin
 
 `--dry-run` stacks and says what would go up, verifying and pushing nothing.
 
+![Four trials isolate one culprit in a batch of four; the three sound branches go up.](images/08-search-by-halves.png)
+
 ## A refusal
+
+![A refused deposit carries a structured refusal; its author fixes, commits, and the deposit leaves again on the new commit.](images/10-fix-and-redock.png)
 
 A branch set aside gets two things next to its deposit:
 
@@ -84,6 +94,8 @@ A branch set aside gets two things next to its deposit:
 The refusal holds while the deposit names the refused commit. Its author fixes, commits, and writes the new commit in the deposit: the next train takes it, with no line to erase. Docking the same commit again leaves it refused. `status.mjs --agent <name> --json` gives the refusal in `mine[].refusal`.
 
 ## A halt
+
+![A halted train blames nobody, is visible to every agent, and resumes by itself when its cause can have changed.](images/11-halts.png)
 
 A halted train blamed nobody. It writes `.work/train-ready/_halt.json`: the class, the cause, the commit of the main branch, the dock as it was, the log. Every agent sees it in `status.mjs`.
 

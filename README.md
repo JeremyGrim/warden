@@ -5,6 +5,8 @@
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22-339933.svg?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Dependencies](https://img.shields.io/badge/dependencies-none-2ea44f)](docs/architecture.md)
 
+![Warden: several agents and humans go through the same Git hooks and one merge train to reach the main branch.](docs/images/01-banner.png)
+
 Warden keeps a repository in order when several AI agents and humans work on it at once.
 
 It gives the repository one set of rules that Git itself enforces: at commit, at push, and in a merge train that only one factory drives. Claude, Codex, a human or a script all go through the same hooks, so nothing depends on watching an agent.
@@ -17,7 +19,9 @@ It gives the repository one set of rules that Git itself enforces: at commit, at
 - **One integration path.** Agents dock their ready branches. A single factory verifies them in batches, finds a culprit by halves, and is the only one to push to the main branch.
 - **Verification sized to the change.** A push runs what its files touch: clippy and tests on the touched Rust packages and their dependents, the project steps whose paths changed, and dependency checks when a lockfile moves.
 - **Nothing recorded, nothing sent.** Checks read the repository, never the conversation or tool calls. No CI is needed, and advisories are compared on the workstation.
-- **Zero dependencies.** The kit imports only `node:*`, and its own guards run on every push.
+- **Zero dependencies.** The kit imports only `node:*`, and its fingerprint is checked on every push.
+
+![An agent commits under the rules, pushes its branch through the push checks, docks it, and the factory's train takes it to main.](docs/images/02-change-path.png)
 
 ## Requirements
 
@@ -73,6 +77,8 @@ claude --agent warden:factory
 
 Once a factory tree is declared, the train refuses to run anywhere else. The factory sets itself up (`/warden:factory-setup`), runs its shift (`/warden:factory-shift`), takes each train (`/warden:train`), watches the workstation (`/warden:factory-health`) and builds releases (`/warden:release`). A train that cannot tell whose fault a failure is halts and blames nobody, then resumes by itself; no person is a relay for an ordinary unblocking. The shared build cache, the CPU budget and the push slot are part of its setup. See the [Factory guide](docs/factory-guide.md) and [Build cache](docs/build-cache.md).
 
+![Before 0.4.0 a person relayed routine blockages; agents now resolve them. Product decisions, publishing a release, cleaning other trees, workstation settings and leaving the version line stay with the person.](docs/images/05-unblocking.png)
+
 ## What Warden checks
 
 | When | What | Script |
@@ -87,6 +93,8 @@ Once a factory tree is declared, the train refuses to run anywhere else. The fac
 | Factory | A release of a commit of the main branch, fingerprinted | `release.mjs build` |
 | On demand | Everything at once; the local history | `verify.mjs all`, `status.mjs --history` |
 
+![What Warden checks at commit, at push, in the train, at release and on demand.](docs/images/07-checks-by-stage.png)
+
 The rules cover:
 
 - the closed root, required files, artifacts, size and line ceilings;
@@ -99,11 +107,7 @@ Every section is optional. See [Configuration](docs/configuration.md).
 
 ## The merge train
 
-```text
-agent branch ──▶ dock (.work/train-ready/<session>.txt) ──▶ factory train ──▶ main
-                                                         │
-                       slot: one push to main at a time ─┘
-```
+![The factory stacks up to four docked branches, runs one trial, finds a culprit by halves, pushes the rest, and halts without blaming anyone when the main branch fails on its own.](docs/images/03-merge-train.png)
 
 1. An agent rebases, checks its own scope, and docks its branch.
 2. The factory stacks up to four branches and runs one trial: dependencies, rules, guards, verification, build.
