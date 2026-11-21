@@ -1,6 +1,6 @@
 # Skills and Agent
 
-The plugin carries eleven skills and one agent. Each skill names a gesture and runs the kit's commands. None of them checks anything Git does not already check.
+The plugin carries ten skills and one agent. Each skill names a gesture and runs the kit's commands. None of them checks anything Git does not already check.
 
 | Skill | For | Who |
 |---|---|---|

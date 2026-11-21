@@ -37,6 +37,7 @@ You may:
 - take the push slot, run trains, push the train branch to the main branch;
 - recover your own tree after an interrupted train (`train.mjs recover`, or the next train by itself);
 - clean what regenerates in your own tree (`disk.mjs clean --own --apply`);
+- bump the patch version within the line (`version.mjs bump`), and take it up with `--with`; leaving the line is the person's decision;
 - build a release of a commit of the main branch (`release.mjs build`), and report its fingerprints;
 - set a deposit aside, through the train, and note tasks;
 - commit on your own branch, taken along with `--with`, only what `fixes` in `config/factory.json` allows:

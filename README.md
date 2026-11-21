@@ -1,6 +1,6 @@
 # Warden
 
-[![Version](https://img.shields.io/badge/version-0.3.0-c71244)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.4.1-c71244)](CHANGELOG.md)
 [![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-d97757)](https://code.claude.com/docs/en/plugins/overview)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22-339933.svg?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Dependencies](https://img.shields.io/badge/dependencies-none-2ea44f)](docs/architecture.md)
@@ -83,6 +83,7 @@ Once a factory tree is declared, the train refuses to run anywhere else. The fac
 | Push | The disk budgets, as a warning | `disk.mjs guard --warn` |
 | Push | The push scope, per `config/factory.json`; the push slot to the main branch. An incident of the workstation is replayed once; a check that could not run is "not run", never passed | `verify.mjs push` |
 | Factory | The merge train: batches, one trial, culprit by halves, a class for every failure, structured refusals, halts that blame nobody | `train.mjs run` |
+| Factory | The patch version, within the version line the person sets | `version.mjs bump` |
 | Factory | A release of a commit of the main branch, fingerprinted | `release.mjs build` |
 | On demand | Everything at once; the local history | `verify.mjs all`, `status.mjs --history` |
 
@@ -106,7 +107,8 @@ agent branch ──▶ dock (.work/train-ready/<session>.txt) ──▶ factory 
 
 1. An agent rebases, checks its own scope, and docks its branch.
 2. The factory stacks up to four branches and runs one trial: dependencies, rules, guards, verification, build.
-3. If the trial fails, the factory finds the culprit by halves, sets it aside with a `refused =` line that names the failed step, and pushes the rest. When every branch fails and the main branch alone fails too, the train stops and blames nobody.
+3. If the trial fails, the factory finds the culprit by halves, sets it aside with a structured refusal (class, step, first error, log, what to do next), and pushes the rest. The refused deposit leaves again as soon as its author docks a new commit.
+4. Every failure gets a class. An incident of the workstation is replayed once; a check that could not run is "not run", never passed. When no branch can be blamed (the main branch red on its own, low memory), the train halts, blames nobody, and resumes by itself when the cause can have changed.
 
 See [Merge train](docs/merge-train.md).
 
@@ -163,6 +165,7 @@ claude plugin validate .
   - an incident of the workstation replayed once;
   - a red main branch that blames no branch, then lifts with its repair;
   - a check that could not run, never counted as passed;
+  - a patch version bump taken up by the train, and a version line that only the person leaves;
   - a release, fingerprinted;
   - an interrupted train, recovered by hand and by the next train;
   - the local history;

@@ -326,9 +326,9 @@ export async function evaluate({ root, config, quick = false, env = process.env 
     if (existsSync(join(root, frozen, 'target'))) alerts.push(t('disk.frozen_built', { dir: frozen }));
   }
   // The factory tree is not an agent's: it never counts in the worktree budget, nor ages (21 November). Nor does the
-  // release tree the factory keeps in its work folder.
+  // release and version trees the factory keeps in its work folder.
   const factoryTree = stationSetting('factory', root);
-  const kitTree = (path) => (factoryTree && resolve(path).toLowerCase() === resolve(factoryTree).toLowerCase()) || /[\\/]release-tree$/.test(path);
+  const kitTree = (path) => (factoryTree && resolve(path).toLowerCase() === resolve(factoryTree).toLowerCase()) || /[\\/](release|version)-tree$/.test(path);
   const trees = worktrees(root).filter((tree) => !kitTree(tree.path));
   if (trees.length > config.max_worktrees) alerts.push(t('disk.too_many_trees', { count: trees.length, max: config.max_worktrees }));
   for (const tree of trees) {

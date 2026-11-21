@@ -5,7 +5,7 @@
 //
 //   node scripts/warden/release.mjs build --commit <sha> [--label <name>]
 //
-// The result lands in <work>/releases/<label>/: the artifacts, SHA256SUMS and release.json. Publishing it (a tag, a
+// The label defaults to the version the commit's manifests carry (`v0.4.1`). The result lands in <work>/releases/<label>/: the artifacts, SHA256SUMS and release.json. Publishing it (a tag, a
 // store, a download page) is the person's decision, never this tool's. A signing key stays in the workstation's
 // environment: Warden never reads it, and the signing output is printed only when it fails, never written to a file.
 
@@ -20,6 +20,7 @@ import { appendHistory, historyPath } from './history.mjs';
 import { t } from './messages.mjs';
 import { holder } from './slot.mjs';
 import { stationSlot } from './verify.mjs';
+import { treeVersion } from './version.mjs';
 
 // The artifacts a release names: plain paths, or a `*` in the last segment. Each must exist.
 export function matchArtifacts(root, patterns) {
@@ -88,7 +89,9 @@ async function build(argv, factory) {
   // An artifact left by an earlier release would pass for this one's.
   for (const pattern of conf.artifacts) for (const path of matchArtifacts(tree, [pattern]).found) rmSync(join(tree, path), { force: true, recursive: true });
 
-  const label = (value('--label') ?? `${commit.slice(0, 7)}`).replace(/[^\w.-]+/g, '-');
+  // The label: given, else the version the commit's manifests carry, else the commit.
+  const { current } = treeVersion(tree, factory);
+  const label = (value('--label') ?? (current ? `v${current}` : commit.slice(0, 7))).replace(/[^\w.-]+/g, '-');
   const out = join(work, 'releases', label);
   rmSync(out, { recursive: true, force: true });
   mkdirSync(out, { recursive: true });

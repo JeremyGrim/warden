@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.1 - 2026-11-21
+
+Versions now move within the 0.4 line.
+
+### Added
+
+- **The factory's version bump** (`version.mjs`): `show` gives the version of every manifest, its line and the next one; `bump` writes the next patch in every manifest at once, refreshes the workspace entries of `Cargo.lock` offline and a `package-lock.json`, and commits it on the factory's branch `warden/version-x.y.z`, for the train to take with `--with`. It works in a tree of its own. The line is `version.line` in `config/factory.json`, by default the current major.minor; leaving it is the person's decision. The manifests are `version.files`, else `versions` of the rules, else `package.json`, `Cargo.toml` and `.claude-plugin/plugin.json`.
+- A release is labelled by default with the version its commit carries (`v0.4.1`).
+
+### Fixed
+
+- The README badge said 0.3.0, and its merge train section still described the refused line and a train that stops.
+- `docs/skills.md` counted eleven skills; there are ten.
+- `docs/merge-train.md` said a batch of four costs at most two extra trials: it takes two to four, depending on where the culprit stands.
+
 ## 0.4.0 - 2026-11-21
 
 Less coordination: an agent produces, submits, fixes and gets its work integrated without a person relaying anything, whenever the rules and the results say what comes next.

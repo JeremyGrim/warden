@@ -32,7 +32,8 @@ On each, it installs the kit and plays:
 - an incident of the workstation replayed once;
 - a red main branch that halts the train, blames nobody, and lifts with its repair;
 - a check that could not run, recorded or blocking;
-- a release, fingerprinted, in its own tree;
+- a patch version bump in both manifests and the lockfile, taken up by the train; a bump off the line refused;
+- a release, fingerprinted, in its own tree, labelled with its version;
 - an interrupted train, recovered by hand and by the next train;
 - the history, the factory role, and the status an agent reads.
 

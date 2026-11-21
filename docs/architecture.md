@@ -31,6 +31,7 @@ warden (this repository)
 | `dock.mjs` | The dock: deposits, refusals, the halt |
 | `train.mjs` | The train |
 | `release.mjs` | A release of a commit of the main branch, in its own tree, fingerprinted |
+| `version.mjs` | The version of every manifest, and its patch bump within the line, on the factory's own branch |
 | `history.mjs` | The local history of pushes, guards, trains and releases, and its summary |
 | `status.mjs` | The state an agent or the factory reads; the history summary |
 | `disk.mjs`, `priority.mjs` | Disk budgets and cleaning; CPU priority during a train |

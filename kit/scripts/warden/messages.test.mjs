@@ -22,7 +22,7 @@ test('every key the kit prints exists in the catalog', () => {
   for (const file of readdirSync(KIT).filter((f) => f.endsWith('.mjs') && !f.endsWith('.test.mjs'))) {
     for (const m of readFileSync(join(KIT, file), 'utf8').matchAll(/\bt\(\s*['`]([a-z_]+(?:\.[a-z_]+)+)['`]/g)) used.add(m[1]);
   }
-  for (const key of ['status.role.factory', 'status.role.agent', 'status.role.unset', 'npm.passed', 'npm.failed', 'train.halt.baseline', 'train.halt.transient', 'train.halt.incomplete']) used.add(key);
+  for (const key of ['status.role.factory', 'status.role.agent', 'status.role.unset', 'npm.passed', 'npm.failed', 'train.halt.baseline', 'train.halt.transient', 'train.halt.incomplete', 'version.not_semver', 'version.off_line', 'version.not_greater', 'version.line_behind']) used.add(key);
   const missing = [...used].filter((key) => !(key in CATALOGS.en));
   assert.deepEqual(missing, []);
 });

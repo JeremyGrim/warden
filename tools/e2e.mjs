@@ -2,7 +2,7 @@
 // The end-to-end trial of the kit on blank projects: the kit installed, commits refused, pushes verified and refused,
 // the kit tests spared when the kit did not change, a train of branches with one culprit, its structured refusal and
 // its return on a new commit, an incident of the workstation replayed, a red main branch that blames no branch and
-// lifts with its repair, a check that could not run, a release, an interrupted train recovered, the history, the
+// lifts with its repair, a check that could not run, a patch version bump, a release, an interrupted train recovered, the history, the
 // factory role and the status an agent reads when it joins. Nothing is simulated: real repositories, real hooks,
 // Cargo and pnpm. The projects live in a temporary folder removed at the end;
 // the report stays.
@@ -277,6 +277,18 @@ async function rustAndNode() {
     const h = history(root);
     check('the history counts the integrations and the refusal by class', h.integrations === 3 && h.refusals.defect === 1 && h.trains === 2, JSON.stringify(h));
   });
+  await step('A. The factory bumps the patch version, and the train takes it up', async () => {
+    const shown = JSON.parse(node(root, 'scripts/warden/version.mjs', 'show', '--json').text);
+    check('the version, its line and the next one are read from both manifests', shown.current === '0.1.0' && shown.line === '0.1' && shown.next === '0.1.1' && shown.files.length === 2, JSON.stringify(shown));
+    const off = node(root, 'scripts/warden/version.mjs', 'bump', '--to', '0.2.0');
+    check('leaving the line is refused: it is the person\'s decision', off.status !== 0 && off.text.includes('leaves the 0.1 line'), off.log);
+    const bumped = node(root, 'scripts/warden/version.mjs', 'bump');
+    check('the bump is committed on the factory\'s own branch, the factory tree untouched', bumped.status === 0 && bumped.text.includes('warden/version-0.1.1') && git(root, 'status', '--porcelain', '--untracked-files=no').text.trim() === '', bumped.log);
+    const r = node(root, 'scripts/warden/train.mjs', 'run', '--agent', 'factory', '--with', 'warden/version-0.1.1');
+    const onMain = (path) => run('git', ['--git-dir', project.remote, 'show', `main:${path}`], TRAY).text;
+    check('the train takes it up: both manifests and the lockfile say 0.1.1', r.status === 0 && /^version = "0\.1\.1"$/m.test(onMain('Cargo.toml')) && /"version": "0\.1\.1"/.test(onMain('package.json')) && /name = "engine"\r?\nversion = "0\.1\.1"/.test(onMain('Cargo.lock')), r.log);
+    check('the slot is given back', await slotReleased(root));
+  });
 }
 
 async function nodeOnly() {
@@ -366,7 +378,8 @@ async function nodeOnly() {
   await step('B. A release of a commit of the main branch', async () => {
     upToDate(root);
     const head = git(root, 'rev-parse', 'HEAD').text.trim();
-    const r = node(root, 'scripts/warden/release.mjs', 'build', '--commit', head, '--label', 'v0.1.0');
+    // No label: the release takes the version the commit carries.
+    const r = node(root, 'scripts/warden/release.mjs', 'build', '--commit', head);
     const folder = join(root, '.work', 'releases', 'v0.1.0');
     const sums = existsSync(join(folder, 'SHA256SUMS')) ? readFileSync(join(folder, 'SHA256SUMS'), 'utf8') : '';
     const digest = existsSync(join(folder, 'app-0.1.0.txt')) ? createHash('sha256').update(readFileSync(join(folder, 'app-0.1.0.txt'))).digest('hex') : 'none';

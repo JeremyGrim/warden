@@ -76,6 +76,8 @@ The `secrets` model admits one fictitious user name in test paths: `person`, its
 | `train.memory_per_job_gib` | The memory a build job may take: the train's jobs are bounded by it (2) |
 | `train.retry_minutes` | A train halted by an incident tries again after this delay, or sooner when the dock changes (10) |
 | `train.halt_notice_minutes` | Past this delay, `watch` says the halt once, with exit code 75 (30) |
+| `version.line` | The version line the factory bumps within, as a string (`"0.4"`). Absent: the current major.minor. Leaving it is the person's decision, by changing this key |
+| `version.files` | The manifests that carry the version, `{ file, read }` as in `versions` of `config/rules.json`. Absent: `versions` of the rules, else `package.json`, `Cargo.toml` and `.claude-plugin/plugin.json` |
 | `history.keep_days` | The local history keeps this many days once it passes 512 KiB (90) |
 | `release` | `build` (a command), `artifacts` (paths, `*` in the last segment), optional `sign` (a command) and `check_signature` (a command where `{file}` is each artifact). See [factory-guide.md](factory-guide.md#release) |
 | `fixes` | What the factory may commit itself, on its own branch: `version`, `lock`, `generated`, `lint`. Default: the first three |

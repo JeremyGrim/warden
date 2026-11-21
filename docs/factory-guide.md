@@ -12,7 +12,7 @@ The plugin ships the factory as a Claude Code agent, `warden:factory` ([agents/f
 | `factory-shift` | The working loop: wait, train, report, scenarios on a build of what went up, health |
 | `train` | One train, and the recovery of an interrupted one |
 | `factory-health` | Disk, memory, cache, slot, dock, halts and worktrees; its own tree cleaned, every other cleanup proposed |
-| `release` | A release of a commit of the main branch, built in its own tree and fingerprinted; publishing it is the person's word |
+| `release` | The patch version bump, then a release of that commit, built in its own tree and fingerprinted; publishing it is the person's word |
 | `task` | Task notes, when a tracker is set |
 | `proof` | Done with proof, or NOT DONE |
 
@@ -54,6 +54,7 @@ The factory may:
 - take the slot;
 - run trains, and recover its own tree after an interrupted one;
 - clean what regenerates in its own tree (`disk.mjs clean --own --apply`);
+- bump the patch version within the line (`version.mjs bump`), and take it up with `--with`;
 - build a release of a commit of the main branch (`release.mjs build`);
 - push the train branch to the main branch;
 - mark deposits refused, through the train;
@@ -73,6 +74,18 @@ The factory never:
 - cleans another tree, removes a worktree, or changes the workstation configuration without the person's word;
 - decides a product choice.
 
+## Version
+
+A project follows a version line, `version.line` in `config/factory.json` (`"0.4"`); without it, the line is the current major.minor. Within the line the factory moves the patch number itself:
+
+```bash
+node scripts/warden/version.mjs show
+node scripts/warden/version.mjs bump
+node scripts/warden/train.mjs run --agent <factory name> --with warden/version-<x.y.z>
+```
+
+`bump` works in a tree of its own, from the remote main branch: it writes every manifest at once, refreshes the workspace entries of `Cargo.lock` offline and a `package-lock.json`, and commits `Version x.y.z` on the factory's branch `warden/version-x.y.z`. It refuses a version off the line, a version that is not major.minor.patch, manifests that disagree, and a project where `version` is not in `fixes`. Leaving the line is the person's decision: they change `version.line`, through the train like any change.
+
 ## Release
 
 A release is a frozen commit of the main branch: only what went up through the train. In `config/factory.json`:
@@ -86,7 +99,7 @@ A release is a frozen commit of the main branch: only what went up through the t
 }
 ```
 
-`node scripts/warden/release.mjs build --commit <sha> [--label <name>]`:
+`node scripts/warden/release.mjs build --commit <sha> [--label <name>]`. The label defaults to the version the commit carries (`v0.4.1`).
 
 1. refuses a commit that is not on the main branch, and refuses while the slot is held: one big build at a time;
 2. checks the commit out in `.work/release-tree`, a worktree of its own, never the train tree; it never counts in the worktree budget;

@@ -62,7 +62,7 @@ A project adds its own incident patterns with `verify.transient_patterns`.
    3. run the rules and the script guards (`guards.mjs`);
    4. verify the changed files (`verify.mjs files`);
    5. build once (`train.build`).
-8. **Search by halves**: when the trial fails, the culprit is found by halves. A batch of four costs at most two extra trials.
+8. **Search by halves**: when the trial fails, the culprit is found by halves, and what already passed is not verified again. With one culprit in a batch of four, it takes three trials when the culprit came last, five when it came first.
 9. **The main branch alone**: when every branch failed, or when an incident survived its replay, the main branch alone goes through the same checks, on the same files. When it fails too, the fault is not in the branches: the train halts and refuses nobody.
 10. **Push**:
     - the commit is marked verified, so the hook does not verify it again;

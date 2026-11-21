@@ -25,6 +25,9 @@ export const FACTORY_DEFAULTS = {
     retry_minutes: 10, halt_notice_minutes: 30,
   },
   history: { keep_days: 90 },
+  // The version line the factory bumps within (`"0.4"`, a string), and the manifests when the usual ones are not
+  // enough (`files`: `{ file, read }`). Null: the line is the current major.minor (version.mjs).
+  version: null,
   // The factory's release: `build` (a command), `artifacts` (paths, `*` in the last segment), `sign` and
   // `check_signature` (optional commands; `{file}` is each artifact). Null: no release.
   release: null,

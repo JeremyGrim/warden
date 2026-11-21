@@ -10,13 +10,18 @@ Only the factory builds a release, from its tree, and only from a commit that we
 ## Before
 
 - The project configures it in `config/factory.json`, section `release`: `build` (a command), `artifacts` (paths, `*` in the last segment), and optionally `sign` and `check_signature` (`{file}` is each artifact). With no section, say so and stop: setting it is the project's choice.
-- The commit is on the remote main branch. A version bump the release needs goes up first, through the train, on your own branch when `fixes` allows `version`.
+- The commit is on the remote main branch, and carries the version to release. Within the line, bump it yourself first:
+  1. `node scripts/warden/version.mjs show`: the current version, the line, the next one;
+  2. `node scripts/warden/version.mjs bump`: the next patch, committed on `warden/version-<x.y.z>`;
+  3. `node scripts/warden/train.mjs run --agent <factory name> --with warden/version-<x.y.z>`.
+
+  A version off the line (`0.5.0` on the `0.4` line) is refused: leaving the line is the person's decision, written in `version.line`.
 - No train runs and the slot is free: one big build at a time on the workstation.
 
 ## Build
 
 ```
-node scripts/warden/release.mjs build --commit <sha> --label <version>
+node scripts/warden/release.mjs build --commit <sha>
 ```
 
 It:
@@ -25,7 +30,7 @@ It:
 2. checks the commit out in `.work/release-tree`, a worktree of its own, never the train tree;
 3. removes the artifacts of an earlier release, installs (`train.install`), builds;
 4. signs when `sign` is set, and checks each signature when `check_signature` is set;
-5. writes `.work/releases/<label>/`: the artifacts, `SHA256SUMS` and `release.json`, and one line to the history.
+5. writes `.work/releases/v<version>/`: the artifacts, `SHA256SUMS` and `release.json`, and one line to the history.
 
 ## Secrets
 
