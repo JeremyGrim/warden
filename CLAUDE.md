@@ -1,1 +1,1 @@
-Lire et appliquer [AGENTS.md](AGENTS.md), seule source des règles de ce dépôt.
+Read and follow [AGENTS.md](AGENTS.md), the only source of this repository's rules.

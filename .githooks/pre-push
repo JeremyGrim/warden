@@ -1,3 +1,3 @@
 #!/bin/sh
-# Les gardes du kit, de la pose et du crochet d'ouverture, dont le manifeste d'empreintes du kit.
-exec node --test "kit/scripts/reglement/*.test.mjs" "outils/*.test.mjs" "hooks/*.test.mjs"
+# The guards of the kit, the installer and the session hook, the kit fingerprint manifest included.
+exec node --test "kit/scripts/warden/*.test.mjs" "tools/*.test.mjs" "hooks/*.test.mjs"

@@ -1,0 +1,63 @@
+{
+  "root": {
+    "dirs": ["docs", "config", "scripts", ".githooks"],
+    "files": ["README.md", "AGENTS.md", "CLAUDE.md", ".gitignore", ".gitattributes", ".editorconfig"]
+  },
+  "required": ["README.md", "AGENTS.md", "CLAUDE.md"],
+  "max_lines": 700,
+  "warn_lines": 650,
+  "lines_exempt": ["Cargo.lock", "pnpm-lock.yaml"],
+  "max_size_kib": 512,
+  "size_exceptions": {
+    "Cargo.lock": 2048,
+    "pnpm-lock.yaml": 2048
+  },
+  "forbidden_segments": [
+    "target",
+    "node_modules",
+    "dist",
+    "build",
+    "out",
+    "outputs",
+    "artifacts",
+    "coverage",
+    "tmp",
+    "temp",
+    ".input",
+    ".work",
+    ".cache",
+    ".claude",
+    ".codex",
+    ".agents"
+  ],
+  "forbidden_extensions": [
+    ".exe", ".dll", ".so", ".dylib", ".pdb", ".rlib", ".rmeta",
+    ".zip", ".7z", ".tar", ".gz", ".tgz", ".rar",
+    ".pdf", ".docx", ".pptx", ".xlsx",
+    ".mp4", ".mov", ".webm",
+    ".log", ".sqlite", ".sqlite3", ".db", ".bin"
+  ],
+  "forbidden_lockfiles": ["package-lock.json", "yarn.lock", "bun.lockb", "bun.lock"],
+  "single_source": { "file": "CLAUDE.md", "points_to": "AGENTS.md", "max_lines": 3 },
+  "docs": {
+    "dir": "docs/",
+    "max_files": 15,
+    "forbidden_names": [
+      "^(CR|BRIEF|AUDIT|PLAN|SPEC|REPORT|HANDOFF|MINUTES|PROGRESS)[-_ .]",
+      "\\d{8}",
+      "\\d{4}-\\d{2}-\\d{2}"
+    ],
+    "forbidden_status": "status\\s*:\\s*\\**\\s*(archiv|histor|informational|obsolete|deprecated|superseded)"
+  },
+  "secrets": [
+    { "name": "private key", "pattern": "-----BEGIN [A-Z ]*PRIVATE KEY-----" },
+    { "name": "GitHub token", "pattern": "\\b(ghp|gho|ghs|ghu)_[A-Za-z0-9]{36}\\b|\\bgithub_pat_[A-Za-z0-9_]{40,}\\b" },
+    { "name": "Anthropic key", "pattern": "\\bsk-ant-[A-Za-z0-9_-]{20,}\\b" },
+    { "name": "OpenAI key", "pattern": "\\bsk-(proj-)?[A-Za-z0-9]{32,}\\b" },
+    { "name": "AWS key", "pattern": "\\bAKIA[0-9A-Z]{16}\\b" },
+    { "name": "Slack token", "pattern": "\\bxox[baprs]-[A-Za-z0-9-]{10,}\\b" },
+    { "name": "machine path", "pattern": "\\b[A-Za-z]:[\\\\/]+Users[\\\\/]+(?![\\\\/])(?!person(?![\\w.-]))[^\\s\"'`]+|/home/(?!person/)[a-z][a-z0-9_-]+/|/Users/(?!person/)[A-Za-z][A-Za-z0-9._-]+/" }
+  ],
+  "secret_exceptions": {},
+  "foreign_code": {}
+}

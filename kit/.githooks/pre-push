@@ -1,8 +1,8 @@
 #!/bin/sh
-# Git donne sur l'entrée standard ce qu'il pousse : la vérification de la poussée le lit.
-# Le règlement sur tout l'arbre, les gardes des scripts, le disque (averti seulement), puis le périmètre de la poussée.
-envoi=$(cat)
-node scripts/reglement/reglement.mjs || exit 1
+# Git gives on standard input what it pushes: the push verification reads it.
+# The rules on the whole tree, the script guards, the disk (warning only), then the scope of the push.
+refs=$(cat)
+node scripts/warden/rules.mjs || exit 1
 node --test "scripts/**/*.test.mjs" || exit 1
-node scripts/reglement/disque.mjs garde --avertir
-printf '%s\n' "$envoi" | node scripts/reglement/verifier.mjs poussee
+node scripts/warden/disk.mjs guard --warn
+printf '%s\n' "$refs" | node scripts/warden/verify.mjs push

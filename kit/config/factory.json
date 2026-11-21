@@ -1,0 +1,19 @@
+{
+  "main_branch": "main",
+  "remote": "origin",
+  "work_dir": ".work",
+  "slot": { "name": "push-slot", "log": null },
+  "verify": {
+    "rust": null,
+    "npm_advisories": null,
+    "steps": [],
+    "all": []
+  },
+  "train": {
+    "branch": "warden-train",
+    "dock": "train-ready",
+    "max_batch": 4,
+    "install": null,
+    "build": null
+  }
+}

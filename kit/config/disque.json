@@ -1,8 +1,0 @@
-{
-  "espace_libre_min_gio": 60,
-  "build_max_gio": 40,
-  "incremental_max_gio": 6,
-  "arbres_max": 2,
-  "arbre_age_max_jours": 7,
-  "copies_figees": []
-}

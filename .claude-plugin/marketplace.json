@@ -1,12 +1,12 @@
 {
   "name": "warden",
   "owner": { "name": "ARKA LABS" },
-  "description": "Le règlement d'un dépôt, vérifié par les crochets Git, et le plugin qui le pose.",
+  "description": "Warden: repository rules enforced by Git, a merge train, and the factory agent that drives it.",
   "plugins": [
     {
       "name": "warden",
       "source": "./",
-      "description": "Le règlement d'un dépôt, vérifié par les crochets Git, et ses gestes pour les agents."
+      "description": "Repository rules enforced by Git hooks, a merge train, an onboarding skill and the factory agent."
     }
   ]
 }

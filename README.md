@@ -1,132 +1,166 @@
 # Warden
 
-Warden est un règlement de dépôt vérifié par les crochets Git, pour un projet où plusieurs agents et des humains codent ensemble. Tout ce qui commite y passe : Claude, Codex, un humain, la fabrique. Rien ne s'enregistre de la session, et rien ne part en ligne.
+[![Version](https://img.shields.io/badge/version-0.2.0-c71244)](CHANGELOG.md)
+[![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-d97757)](https://code.claude.com/docs/en/plugins/overview)
+[![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22-339933.svg?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Dependencies](https://img.shields.io/badge/dependencies-none-2ea44f)](docs/architecture.md)
 
-Le dépôt a deux étages :
+Warden keeps a repository in order when several AI agents and humans work on it at once.
 
-1. **Le kit** (`kit/`), copié dans le projet et versionné avec lui : les scripts de `scripts/reglement/` et leurs gardes, les crochets de `.githooks/`, et les modèles de `config/`, d'`AGENTS.md` et de `CLAUDE.md`.
-2. **Le plugin Claude Code**, qui porte les skills des gestes et un seul crochet, à l'ouverture de session. Il ne contrôle rien lui-même.
+It gives the repository one set of rules that Git itself enforces: at commit, at push, and in a merge train that only one factory drives. Claude, Codex, a human or a script all go through the same hooks, so nothing depends on watching an agent.
 
-Il faut Node 22 ou plus et Git. Les scripts n'importent que `node:*`. Le kit est éprouvé sous Windows, avec Node 24.
+`warden` is the Claude Code plugin. The kit it installs runs on Node and Git alone.
 
-## Poser le kit dans un projet
+## Why Warden
 
-Avec Claude Code :
+- **Rules checked by Git, not by trust.** A rule nothing checks is only an intention. Each rule lives in `config/rules.json` and is enforced by the pre-commit and pre-push hooks.
+- **One integration path.** Agents dock their ready branches. A single factory verifies them in batches, finds a culprit by halves, and is the only one to push to the main branch.
+- **Verification sized to the change.** A push runs what its files touch: clippy and tests on the touched Rust packages and their dependents, the project steps whose paths changed, and dependency checks when a lockfile moves.
+- **Nothing recorded, nothing sent.** Checks read the repository, never the conversation or tool calls. No CI is needed, and advisories are compared on the workstation.
+- **Zero dependencies.** The kit imports only `node:*`, and its own guards run on every push.
+
+## Requirements
+
+- Node.js 22 or newer
+- Git
+- For Rust projects: Cargo, plus `cargo-deny` for the dependency check (optional)
+- For Node projects: the project's own package manager (pnpm, npm, yarn or bun)
+
+The kit has been tried end to end on Windows with Node 24. Other systems are not proven yet.
+
+## Install
+
+In Claude Code:
 
 ```
 /plugin marketplace add JeremyGrim/warden
 /plugin install warden@warden
 ```
 
-Le dépôt est privé : Claude Code le clone avec les identifiants Git du poste (`gh auth login`, puis `gh auth setup-git`). Puis demander de poser le règlement : le skill `reglement-poser` fait la pose et adapte la configuration en lisant le dépôt.
+The repository is private: Claude Code clones it with the workstation's Git credentials (`gh auth login`, then `gh auth setup-git`).
 
-Sans Claude Code, depuis un clone de ce dépôt :
+Then ask the agent to set Warden up in your project. The `/warden:setup` skill installs the kit and adapts its configuration by reading the repository.
+
+Without Claude Code, from a clone of this repository:
+
+```bash
+node tools/install.mjs <project> --dry-run
+node tools/install.mjs <project>
+```
+
+The installer copies `scripts/warden/` as is, with its fingerprint manifest. It installs the missing models (`AGENTS.md`, `CLAUDE.md`, `.githooks/`, `config/`) adapted to the project, keeps the existing ones as they are, and turns the hooks on. Each clone turns its hooks on once: `git config core.hooksPath .githooks`.
+
+## Start an agent session
 
 ```
-node outils/poser.mjs <projet> --simuler
-node outils/poser.mjs <projet>
+/warden:onboard
 ```
 
-La pose :
+The onboarding reads the real state instead of guessing it: the kit version, the hooks, the role of this tree (agent or factory), the branch, the dock and the agent's own deposits. It then reads `AGENTS.md` and names the next gesture. A new session is reminded of it by the plugin's only hook.
 
-- copie `scripts/reglement/` tel quel, avec son manifeste d'empreintes `kit.json` ;
-- pose les modèles qui manquent, adaptés au projet : la racine admet ce qui y est déjà, et la fabrique prend Rust, le gestionnaire npm et les scripts `test` et `build` ;
-- garde tel quel un modèle déjà là ;
-- ajoute `.travail/` et `.input/` à `.gitignore`, garde les crochets en LF par `.gitattributes`, crée `.travail/` et active les crochets (`core.hooksPath .githooks`).
+```bash
+node scripts/warden/status.mjs --agent <session> --json
+```
 
-Un script du kit retouché dans le projet, ou un fichier inconnu du kit dans `scripts/reglement/`, arrête la pose sans rien écrire. L'écart devient un réglage de `config/`, ou un correctif du kit ici.
+## The factory
 
-Chaque clone active ses crochets une fois : `git config core.hooksPath .githooks`.
+The factory is a fixed agent with its own profile, its own tree and its own skills. It runs the merge train and nothing else.
 
-## Ce que le kit contrôle
+```bash
+git config warden.factory "<absolute path of the factory tree>"
+claude --agent warden:factory
+```
 
-| Quand | Quoi | Script |
+Once a factory tree is declared, the train refuses to run anywhere else. The factory sets itself up (`/warden:factory-setup`), runs its shift (`/warden:factory-shift`), takes each train (`/warden:train`), and watches the workstation (`/warden:factory-health`). The shared build cache, the CPU budget and the push slot are part of its setup. See the [Factory guide](docs/factory-guide.md) and [Build cache](docs/build-cache.md).
+
+## What Warden checks
+
+| When | What | Script |
 |---|---|---|
-| Au commit | Le règlement, sur les fichiers indexés, lus dans l'index | `reglement.mjs --index` |
-| Au push | Le règlement sur tout l'arbre, frontières comprises | `reglement.mjs` |
-| Au push | Les gardes des scripts : `node --test "scripts/**/*.test.mjs"` | — |
-| Au push | Le disque, en avertissement | `disque.mjs garde --avertir` |
-| Au push | Le périmètre de la poussée, selon `config/fabrique.json` ; le créneau vers la branche principale | `verifier.mjs poussee` |
-| À la demande | Le train : lots de branches déposées, vérifiés ensemble, la fautive cherchée par moitiés | `train.mjs conduire` |
-| À la demande | Tout le dépôt | `verifier.mjs tout` |
+| Commit | The rules, on the staged files, read from the index | `rules.mjs --staged` |
+| Push | The rules on the whole tree, boundaries included | `rules.mjs` |
+| Push | The script guards: `node --test "scripts/**/*.test.mjs"` | — |
+| Push | The disk budgets, as a warning | `disk.mjs guard --warn` |
+| Push | The push scope, per `config/factory.json`; the push slot to the main branch | `verify.mjs push` |
+| Factory | The merge train: batches, one trial, culprit by halves | `train.mjs run` |
+| On demand | Everything at once | `verify.mjs all` |
 
-### `config/reglement.json`
+The rules cover:
 
-Chaque section est facultative : une section absente ne se joue pas.
+- the closed root, required files, artifacts, size and line ceilings;
+- secrets and machine paths, a single package manager, and a single source of rules;
+- documents written in the present tense, and one version across manifests;
+- Rust and Node architecture boundaries, provenance, a component registry;
+- debts that only shrink, and chokepoints (texts and colours that must go through their source).
 
-| Section | Ce qu'elle refuse |
-|---|---|
-| `racine` | Un dossier ou un fichier de la racine qui n'est pas listé |
-| `obligatoires` | Un fichier obligatoire absent |
-| `segments_interdits`, `extensions_interdites` | Un artefact versionné : build, dépendances, archive, binaire… |
-| `taille_max_kio`, `taille_exceptions` | Un fichier trop gros, sauf exception par chemin |
-| `lignes_max`, `lignes_avertissement`, `lignes_exemptes` | Un fichier trop long ; au-delà de l'avertissement, le commit prévient sans refuser |
-| `gestionnaires_interdits` | Un second gestionnaire de paquets |
-| `secrets`, `secrets_exceptions` | Une clé, un jeton ou un chemin de machine. L'exception se donne par chemin et par type, avec sa raison |
-| `code_etranger` | Rien : le code étranger nommé échappe aux lignes et à la taille, pas aux secrets |
-| `source_unique` | Un `CLAUDE.md` qui porte des règles au lieu de renvoyer à `AGENTS.md` |
-| `docs` | Dans `docs/` : trop de fichiers, un nom daté ou de compte rendu, un document qui se dit historique |
-| `versions` | Deux manifestes qui disent deux versions (`json:<clé>`, `toml:<table.clé>`) |
-| `frontieres.rust`, `frontieres.node` | Une zone qui atteint une zone ou un paquet interdit, même de loin. Une exception `sauf` ne fait que raccourcir |
-| `binaire_de_test_unique` | Plus d'un binaire de test d'intégration par crate |
-| `provenance` | Un élément d'une zone sans origine déclarée, ou une origine déclarée sans élément |
-| `registre` | Un composant sans catégorie au registre, ou un nom du registre absent du dépôt |
-| `dettes` | Un fichier d'une dette hors de son fichier unique ; avec `ne_grandit_pas`, ce fichier qui grandit au commit |
-| `passages` | Ce qui doit passer par sa source (un texte d'interface, une couleur) écrit en dur dans sa zone |
+Every section is optional. See [Configuration](docs/configuration.md).
 
-### `config/fabrique.json`
+## The merge train
 
-- `principale`, `distant` : la branche d'intégration et son distant.
-- `creneau` : le nom du dossier du créneau, et un registre facultatif où s'écrit la reprise d'un créneau abandonné.
-- `verification` :
-  - `rust` : `entier` (les motifs qui vérifient tout l'espace), `clippy`, `tests`, `a_part` (un paquet testé à part, avec ses arguments), `deny` (le fichier de `cargo deny`).
-  - `avis_npm` : le verrou pnpm comparé, sur le poste, à un clone de la GitHub Advisory Database.
-  - `etapes` : `{ titre, si, commande, inchanges }`. `si` liste des motifs de chemins ; `inchanges`, des chemins que la commande ne doit pas changer (des fichiers générés).
-  - `tout` : les étapes en plus pour `verifier.mjs tout`.
-- `train` : `branche`, `lot_max`, `installer` (`{ verrou, commande }`), `fabriquer` (`{ titre, commande }`).
+```text
+agent branch ──▶ dock (.work/train-ready/<session>.txt) ──▶ factory train ──▶ main
+                                                         │
+                       slot: one push to main at a time ─┘
+```
 
-### Ce qui est propre au poste
+1. An agent rebases, checks its own scope, and docks its branch.
+2. The factory stacks up to four branches and runs one trial: dependencies, rules, guards, verification, build.
+3. If the trial fails, the factory finds the culprit by halves, sets it aside with a `refused =` line, and pushes the rest.
 
-Ces réglages ne se versionnent jamais : `git config reglement.<clé>`.
+See [Merge train](docs/merge-train.md).
 
-- `reglement.creneau` : le dossier du créneau, pour un clone qui n'est pas un arbre de la racine.
-- `reglement.taches` : l'outil de suivi des tâches, qui suit le contrat de cinq gestes (skill `tache-avancer`).
-- `reglement.ghsa` : le clone de la base des avis npm. La variable `REGLEMENT_GHSA_DATABASE` passe devant.
-- `config/disque.local.json` : les plafonds du disque propres au poste.
+## Language
 
-## Le quai et le train
+English is canonical for:
 
-Un agent dépose sa branche prête dans `.travail/train-pret/<session>.txt` (skill `quai-deposer`). La fabrique, seul arbre qui pousse sur la branche principale, conduit le train (skill `train-conduire`) :
+- code, commands and options;
+- configuration keys and rule identifiers;
+- file names and JSON output;
+- public documentation.
 
-1. elle empile au plus quatre branches ;
-2. elle joue une fois les dépendances, le règlement, les gardes, la vérification et la fabrication ;
-3. elle cherche la fautive par moitiés, puis pousse.
+Display text can be English or French. The locale is resolved in this order:
 
-Une branche laissée de côté reçoit une ligne `refuse =`.
+1. `WARDEN_LOCALE` (`en` or `fr`)
+2. `git config warden.locale`
+3. the system locale (`LC_ALL`, `LC_MESSAGES`, `LANG`, then the runtime's)
+4. English
 
-## Les skills
+The installer writes `AGENTS.md` and `CLAUDE.md` in the resolved locale (`--locale en|fr` forces one). Skills accept English and French triggers and answer in the person's language.
 
-| Skill | Pour |
-|---|---|
-| `reglement-poser` | Poser ou mettre à jour le kit, et adapter sa configuration |
-| `quai-deposer` | Déposer une branche prête |
-| `train-conduire` | Conduire le train ; la fabrique seulement |
-| `tache-avancer` | Tenir le suivi des tâches par cinq gestes, si un outil est branché |
-| `preuve-dire` | Dire fini, preuve à l'appui, ou PAS FINI avec ce qui reste |
+## Documentation
 
-## Mettre à jour le kit
+- [User guide](docs/user-guide.md)
+- [Agent guide](docs/agent-guide.md)
+- [Factory guide](docs/factory-guide.md)
+- [Merge train](docs/merge-train.md)
+- [Build cache](docs/build-cache.md)
+- [Configuration](docs/configuration.md)
+- [Skills and agent](docs/skills.md)
+- [Architecture](docs/architecture.md)
+- [Why each rule exists](docs/rationale.md)
+- [Security](docs/security.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Developer guide](docs/developer-guide.md)
 
-Ici :
+## Quality
 
-1. modifier le kit ;
-2. monter la version dans `.claude-plugin/plugin.json` ;
-3. `node outils/empreintes.mjs` ;
-4. `node --test`, qui joue les gardes du kit, de la pose et du crochet.
+```bash
+npm test          # every guard of the kit, the installer and the session hook
+node tools/e2e.mjs   # the end-to-end trial on blank Rust + Node and Node-only projects
+claude plugin validate .
+```
 
-Dans un projet, reposer le kit : un script non retouché est remplacé, et celui qu'une version ne pose plus est retiré.
+- Source files are limited to 700 lines.
+- The kit has no dependency.
+- Its fingerprint manifest refuses a kit edited in place.
+- The end-to-end trial plays real repositories, real hooks, Cargo and pnpm. It covers:
+  - refused commits;
+  - verified and refused pushes;
+  - a crossed boundary;
+  - two trains, one of them with a culprit;
+  - the factory role;
+  - the status an agent reads.
 
-## Pas encore là
+## License
 
-- La coque d'épreuve de parcours. Pour l'instant, la méthode et le contrat de scénario vivent dans le skill `preuve-dire`.
-- Le lieu d'essai, la préversion, et la livraison depuis un clone propre avec son empreinte.
-- Un adaptateur de frontières pour un autre langage que Rust et Node.
+Not licensed yet. The repository is private until a license is chosen.

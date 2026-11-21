@@ -7,7 +7,8 @@
   },
   "scripts": {
     "prepare": "git config core.hooksPath .githooks",
-    "test": "node --test \"kit/scripts/reglement/*.test.mjs\" \"outils/*.test.mjs\" \"hooks/*.test.mjs\"",
-    "empreintes": "node outils/empreintes.mjs"
+    "test": "node --test \"kit/scripts/warden/*.test.mjs\" \"tools/*.test.mjs\" \"hooks/*.test.mjs\"",
+    "fingerprints": "node tools/fingerprints.mjs",
+    "e2e": "node tools/e2e.mjs"
   }
 }

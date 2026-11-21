@@ -1,52 +1,52 @@
-# Règlement du dépôt {{projet}}
+# Rules of the {{project}} repository
 
-Une règle que rien ne vérifie reste une intention. Ce règlement est donc contrôlé par `node scripts/reglement/reglement.mjs`, au commit et au push, par les crochets Git de `.githooks/`. Les règles marquées **[contrôlée]** bloquent. Les autres se jugent à la relecture. Changer une règle ou un plafond passe par ce fichier et `config/reglement.json`, dans un commit qui dit pourquoi.
+A rule nothing checks is only an intention. These rules are therefore checked by `node scripts/warden/rules.mjs`, at commit and at push, through the Git hooks in `.githooks/`. Rules marked **[checked]** block. The others are judged in review. Changing a rule or a ceiling goes through this file and `config/rules.json`, in one commit that says why.
 
-Pour démarrer : `git config core.hooksPath .githooks` active les crochets. Le kit de `scripts/reglement/` se copie tel quel : ce qui est propre au projet va dans `config/`, jamais dans ses scripts.
+To start: `git config core.hooksPath .githooks` turns the hooks on. The kit in `scripts/warden/` is copied as is: what belongs to the project goes into `config/`, never into its scripts.
 
-## 1. Ce qui entre dans le dépôt
+## 1. What enters the repository
 
-- **[contrôlée]** La racine est fermée. Seuls les dossiers et fichiers listés dans `config/reglement.json` y ont leur place.
-- **[contrôlée]** Le dépôt contient du source et de la documentation. Jamais de build, de log, de capture, d'archive, de base de données, de PDF ni de binaire. Un fichier de plus de 512 Kio demande une exception nommée.
-- **[contrôlée]** 700 lignes au plus par fichier. On découpe par responsabilité, sans compacter pour passer le contrôle. Au-delà de 650, le commit avertit sans refuser : celui qui touche le fichier le découpe.
-- **[contrôlée]** Aucun secret, aucun chemin propre à une machine.
-- **[contrôlée]** Un seul gestionnaire de paquets, avec un seul fichier de verrouillage.
-- **[contrôlée]** `AGENTS.md` est la seule source des règles. `CLAUDE.md` ne fait qu'y renvoyer.
+- **[checked]** The root is closed. Only the folders and files listed in `config/rules.json` belong there.
+- **[checked]** The repository holds source and documentation. Never a build, a log, a capture, an archive, a database, a PDF or a binary. A file over 512 KiB needs a named exception.
+- **[checked]** 700 lines at most per file. Split by responsibility, never compact to pass the check. Past 650, the commit warns without refusing: whoever touches the file splits it.
+- **[checked]** No secret, no path specific to a machine.
+- **[checked]** One package manager, with one lockfile.
+- **[checked]** `AGENTS.md` is the only source of rules. `CLAUDE.md` only points to it.
 
-La matière de travail (briefs, comptes rendus, captures, exports) va dans `.input/` ou `.travail/`, qui ne sont pas versionnés.
+Working material (briefs, reports, captures, exports) goes into `.input/` or `.work/`, which are not committed.
 
-Le code étranger entre avec une raison nommée dans `config/reglement.json` (`code_etranger`) et un moyen de prouver son écart avec l'amont. Il échappe aux lignes et à la taille, pas aux secrets, et on n'y corrige rien à la main.
+Foreign code enters with a named reason in `config/rules.json` (`foreign_code`) and a way to prove its gap with upstream. It escapes the line and size ceilings, not the secret check, and nothing in it is fixed by hand.
 
-## 2. Le dépôt parle au présent
+## 2. The repository speaks in the present tense
 
-Un document dit ce qui est vrai aujourd'hui. Ce qui ne l'est plus se corrige ou se supprime : Git garde le passé.
+A document says what is true today. What no longer is gets fixed or deleted: Git keeps the past.
 
-- **[contrôlée]** `docs/` compte 15 fichiers au plus, sans date dans le nom, sans compte rendu, brief, audit ni plan.
-- **[contrôlée]** Aucun document ne se déclare historique, archivé ou informatif. Il n'a alors plus sa place ici.
+- **[checked]** `docs/` holds 15 files at most, with no date in a name, and no report, brief, audit or plan.
+- **[checked]** No document declares itself historical, archived or informational. It would no longer belong here.
 
-## 3. L'architecture
+## 3. Architecture
 
-- Le domaine ne connaît ni hôte, ni fournisseur, ni matériel ; les protocoles et les outils extérieurs restent dans leurs adaptateurs. Une frontière se contrôle en la déclarant dans `config/reglement.json` (`frontieres`), et sa règle se marque **[contrôlée]** ici.
-- Pas de coquille vide : un dossier existe quand il contient du vrai.
-- Toute consigne destinée à un modèle vit dans une ressource versionnée, pas dans un composant d'interface.
-- Rien en dur : un seuil vient du modèle, d'une ressource ou d'un budget configuré, jamais d'un chiffre posé pour faire passer.
+- The domain knows no host, provider or hardware; protocols and external tools stay in their adapters. A boundary is checked by declaring it in `config/rules.json` (`boundaries`), and its rule is then marked **[checked]** here.
+- No empty shell: a folder exists when it holds something real.
+- Every instruction meant for a model lives in a committed resource, never in an interface component.
+- Nothing hard-coded: a threshold comes from the model, a resource or a configured budget, never from a number set to make a check pass.
 
-## 4. Travailler à plusieurs
+## 4. Working together
 
-- La branche principale est la seule branche d'intégration.
-- Chacun ne commite que ses propres fichiers et préserve le travail des autres, index Git compris.
-- Avant de pousser : `git fetch`, avance rapide seulement, jamais de force. Si le distant a bougé, on le dit.
-- Seule la fabrique pousse sur la branche principale. Un agent pousse sa branche, jamais la branche principale.
-- On ne contourne pas un contrôle (`--no-verify`) : on corrige, ou on propose de changer la règle.
-- **[contrôlée]** Rien ne vérifie le dépôt hors du poste. Le crochet de push joue le règlement, les gardes des scripts, puis `node scripts/reglement/verifier.mjs poussee` : ce que `config/fabrique.json` demande pour les fichiers que la poussée change. Le commit poussé doit être celui de l'arbre, sans modification suivie. Une seule poussée vers la branche principale à la fois sur le poste : le crochet prend le créneau (`.travail/creneau-poussee-main` de la racine), refuse avant toute vérification si la branche principale a bougé, et le rend quand le distant porte le commit.
-- L'agent ne contrôle que ce qu'il touche. Sa branche prête se dépose dans `.travail/train-pret/<session>.txt` : `arbre`, `branche`, `taches`, `depose` (`jj/mm hh:mm`), et `parcours` si le changement se voit à l'écran. Elle est rebasée sur la branche principale et verte sur son périmètre ; deux dépôts en attente au plus par agent. La fabrique conduit `node scripts/reglement/train.mjs conduire --agent <nom>` : quatre branches au plus par lot, vérifiées ensemble, la fautive cherchée par moitiés. Une branche laissée de côté reçoit une ligne `refuse =` : son auteur corrige, rebase et retire la ligne.
-- Un travail est fini quand une preuve exécutée le montre, et une commande réussie ne prouve que ce qu'elle contrôle. Tant qu'un écart reste ouvert, on écrit **PAS FINI**. Aucun succès simulé. On dit d'abord ce qui n'est pas prouvé.
-- Aucune restriction sans fondement : la décision du responsable du dépôt, ou « provisoire : <condition> ».
-- Remplacer un chemin, c'est supprimer l'ancien.
+- The main branch is the only integration branch.
+- Everyone commits only their own files and preserves the work of others, Git index included.
+- Before pushing: `git fetch`, fast-forward only, never force. If the remote moved, say so.
+- Only the factory pushes to the main branch. An agent pushes its own branch, never the main branch.
+- No check is bypassed (`--no-verify`): fix the cause, or propose to change the rule.
+- **[checked]** Nothing verifies the repository outside the workstation. The push hook runs the rules, the script guards, then `node scripts/warden/verify.mjs push`: what `config/factory.json` asks for the files the push changes. The pushed commit must be the tree's, with no tracked modification. One push to the main branch at a time on the workstation: the hook takes the slot (`.work/push-slot` at the root), refuses before any verification when the main branch moved, and gives it back when the remote carries the commit.
+- An agent checks only what it touches. Its ready branch is docked in `.work/train-ready/<session>.txt`: `tree`, `branch`, `tasks`, `docked` (`dd/mm hh:mm`), and `scenario` when the change shows on screen. It is rebased on the main branch and green on its scope; two pending deposits at most per agent. The factory runs `node scripts/warden/train.mjs run --agent <name>`: four branches at most per batch, verified together, the culprit found by halves. A branch set aside gets a `refused =` line: its author fixes it, rebases and removes the line.
+- Work is done when an executed proof shows it, and a successful command only proves what it checks. While a gap stays open, write **NOT DONE**. No simulated success. Say first what is not proven.
+- No restriction without a basis: the decision of the repository owner, or "provisional: <condition>".
+- Replacing a path means deleting the old one.
 
-## 5. Le disque
+## 5. The disk
 
-- On travaille dans la racine. Un arbre de travail supplémentaire reste une exception, dans les plafonds de `config/disque.json`.
-- **Jamais de `target` partagé entre deux arbres**, ni par lien ni par `CARGO_TARGET_DIR` : Cargo peut alors annoncer un succès sans avoir compilé le code de l'arbre.
-- Les livrables vivent hors du dépôt.
-- `node scripts/reglement/disque.mjs garde` avant un gros build. `nettoyer` simule ; `--appliquer` reste un geste du responsable du dépôt.
+- Work happens in the root. An extra worktree stays an exception, within the ceilings of `config/disk.json`.
+- **Never share a `target` between two trees**, by link or by `CARGO_TARGET_DIR`: Cargo can then report success without having compiled the tree's code.
+- Deliverables live outside the repository.
+- `node scripts/warden/disk.mjs guard` before a big build. `clean` is a dry run; `--apply` stays a gesture of the repository owner.

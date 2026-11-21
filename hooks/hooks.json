@@ -7,7 +7,7 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/crochets.mjs"],
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/session-start.mjs"],
             "timeout": 5
           }
         ]

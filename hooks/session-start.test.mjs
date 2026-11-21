@@ -1,0 +1,27 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+
+import { compare, notices } from './session-start.mjs';
+
+test('with no kit in the project, the hook says nothing', () => {
+  assert.deepEqual(notices({ kit: null, plugin: { version: '0.2.0' }, hooks: '', source: 'startup' }), []);
+});
+
+test('all is well on a resume: nothing to say, no context cost', () => {
+  assert.deepEqual(notices({ kit: { version: '0.2.0' }, plugin: { version: '0.2.0' }, hooks: '.githooks', source: 'resume' }), []);
+});
+
+test('inactive hooks, a kit behind, a new session: one line each', () => {
+  const lines = notices({ kit: { version: '0.1.0' }, plugin: { version: '0.2.0' }, hooks: '', source: 'startup' });
+  assert.equal(lines.length, 3);
+  assert.match(lines[0], /core\.hooksPath \.githooks/);
+  assert.match(lines[1], /0\.1\.0.*0\.2\.0/);
+  assert.match(lines[2], /\/warden:onboard/);
+  assert.match(notices({ kit: { version: '0.2.0' }, plugin: { version: '0.2.0' }, hooks: '', source: 'resume', locale: 'fr' })[0], /crochets Git sont inactifs/);
+});
+
+test('versions compare number by number', () => {
+  assert.equal(compare('0.10.0', '0.9.0'), 1);
+  assert.equal(compare('1.0.0', '1.0.0'), 0);
+  assert.equal(compare('1.0', '1.0.1'), -1);
+});

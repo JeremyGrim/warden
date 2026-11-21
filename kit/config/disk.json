@@ -1,0 +1,8 @@
+{
+  "min_free_gib": 60,
+  "max_build_gib": 40,
+  "max_incremental_gib": 6,
+  "max_worktrees": 2,
+  "max_worktree_age_days": 7,
+  "frozen_copies": []
+}

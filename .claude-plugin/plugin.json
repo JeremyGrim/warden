@@ -1,10 +1,10 @@
 {
   "name": "warden",
   "displayName": "Warden",
-  "version": "0.1.0",
-  "description": "Pose dans un projet un règlement vérifié par les crochets Git (règlement, vérification de poussée, créneau, quai et train, disque), et les skills qui disent ses gestes. Rien ne s'enregistre de la session ; tout contrôle passe par Git.",
+  "version": "0.2.0",
+  "description": "Repository rules that Git enforces for every agent and human: rules at commit, scoped verification at push, one push slot, and a merge train driven by a single factory agent. Ships the onboarding, the factory profile and its skills. Nothing is recorded from the session; every check goes through Git.",
   "author": { "name": "ARKA LABS" },
   "homepage": "https://github.com/JeremyGrim/warden",
   "repository": "https://github.com/JeremyGrim/warden",
-  "keywords": ["git", "hooks", "multi-agents", "reglement", "train", "verification"]
+  "keywords": ["git", "hooks", "multi-agent", "merge-train", "rules", "verification", "factory"]
 }

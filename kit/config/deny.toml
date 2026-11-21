@@ -1,15 +1,15 @@
-# Le contrôle des dépendances Rust : `cargo deny check --config config/deny.toml`, joué par la vérification de poussée
-# quand un manifeste ou le verrou change. Les avis de sécurité viennent de la base publique RustSec, téléchargée puis
-# comparée sur le poste au verrou : aucune liste de dépendances ne part.
+# The Rust dependency check: `cargo deny check --config config/deny.toml`, run by the push verification when a manifest
+# or the lockfile changes. Security advisories come from the public RustSec database, downloaded and compared to the
+# lockfile on the workstation: no dependency list leaves the workstation.
 
 [graph]
 all-features = false
 
 [advisories]
-# Un crate de l'espace qui dépend directement d'un crate abandonné bloque ; plus loin dans le graphe, il est dit.
+# A workspace crate depending directly on an unmaintained crate blocks; further down the graph, it is reported.
 unmaintained = "workspace"
 yanked = "deny"
-# Chaque avis ignoré est une dette nommée, avec sa raison : { id = "RUSTSEC-…", reason = "…" }. Un avis neuf bloque.
+# Each ignored advisory is a named debt, with its reason: { id = "RUSTSEC-…", reason = "…" }. A new advisory blocks.
 ignore = []
 
 [licenses]
@@ -20,7 +20,7 @@ allow = [
 ]
 
 [licenses.private]
-# Les crates de l'espace qui ne se publient pas (`publish = false`).
+# Workspace crates that are not published (`publish = false`).
 ignore = true
 
 [bans]

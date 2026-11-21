@@ -1,24 +1,26 @@
-# Règles du dépôt Warden
+# Rules of the Warden repository
 
-Ce dépôt porte le kit d'un règlement de dépôt et le plugin Claude Code qui le pose. Le [README](README.md) dit ce qu'il fait.
+This repository holds the Warden kit and the Claude Code plugin that installs it. The [README](README.md) says what it does; the [Developer guide](docs/developer-guide.md) says how to change it.
 
-## Le kit
+## The kit
 
-- Les scripts du kit (`kit/scripts/reglement/`) n'importent que `node:*`. Ils tournent dans tout projet qui a Node et Git, sans rien installer.
-- Rien de propre à un projet n'est écrit dans un script du kit. Ce qui décrit le projet va dans une section de sa configuration ; une section absente ne se joue pas. Ce qui est propre au poste se règle par `git config reglement.<clé>`.
-- Chaque script a sa garde en `node:test`, à côté de lui. Une garde ne lit pas la configuration du projet où le kit est posé : elle porte ses propres données.
-- Un test qui crée ses propres dépôts Git importe d'abord `environnement-git.mjs`, et figure dans la garde de cet import.
-- Une étape lancée par le kit ne transmet pas le contexte d'un lanceur de tests (`NODE_TEST_CONTEXT`) : un `node --test` qui le reçoit saute tout et se dit réussi.
-- Chaque règle d'outillage garde en commentaire l'incident qui l'a fait naître.
-- Après toute modification du kit : monter la version dans `.claude-plugin/plugin.json` (seule source de la version), puis lancer `node outils/empreintes.mjs`. La garde `kit.test.mjs` refuse un manifeste en retard.
+- The kit scripts (`kit/scripts/warden/`) import only `node:*`. They run in any project that has Node and Git, with nothing to install.
+- Nothing specific to a project is written in a kit script. What describes the project goes into a section of its configuration, and a missing section is not checked. What belongs to one workstation is set with `git config warden.<key>`.
+- English is canonical for code, commands, configuration keys, rule identifiers and JSON. Display text goes through `t()`, with the same keys and placeholders in the English and French catalogs.
+- Every script has its `node:test` guard next to it. A guard never reads the configuration of the project the kit is installed in: it carries its own data.
+- A test that creates its own Git repositories imports `git-env.mjs` first, and is listed in `git-env.test.mjs`.
+- A step launched by the kit never passes on a test runner's context (`NODE_TEST_CONTEXT`). A `node --test` that receives it skips everything and reports success.
+- Every tooling rule keeps, in a comment, the incident it came from.
+- After any change to the kit: raise the version in `.claude-plugin/plugin.json` (the only source of the version), then run `node tools/fingerprints.mjs`. The `kit.test.mjs` guard refuses a manifest that lags behind.
 
-## Le plugin
+## The plugin
 
-- Aucun crochet Claude Code sur les appels d'outil. Le seul crochet est celui de l'ouverture de session, et il ne dit rien quand tout va.
-- Une skill dit un geste, avec les commandes du kit. Elle ne refait pas un contrôle que Git fait déjà.
+- No Claude Code hook on tool calls. The only hook runs at session start, and it says nothing when all is well.
+- A skill names a gesture and uses the kit's commands. It never repeats a check Git already makes.
+- The factory agent has no authority beyond the train: no product code, no workstation change and no cleanup without the person's word.
 
-## Le dépôt
+## The repository
 
-- 700 lignes au plus par fichier. Les messages et les documents sont en français.
-- Les gardes se jouent avec `node --test`, depuis la racine, avant chaque commit.
-- Un travail est fini quand une preuve exécutée le montre. Sinon, on écrit **PAS FINI**, et on dit d'abord ce qui n'est pas prouvé.
+- 700 lines at most per file. Code, documentation and skills are in English; the French catalog and the French models (`*.fr.md`) are the only French files.
+- Run the guards with `npm test` before each commit, and `node tools/e2e.mjs` before each version.
+- Work is done when an executed proof shows it. Otherwise write **NOT DONE**, and say first what is not proven.
