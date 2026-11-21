@@ -1,6 +1,6 @@
 # Skills and Agent
 
-The plugin carries ten skills and one agent. Each skill names a gesture and runs the kit's commands. None of them checks anything Git does not already check.
+The plugin carries eleven skills and one agent. Each skill names a gesture and runs the kit's commands. None of them checks anything Git does not already check.
 
 | Skill | For | Who |
 |---|---|---|
@@ -12,7 +12,8 @@ The plugin carries ten skills and one agent. Each skill names a gesture and runs
 | `/warden:factory-setup` | Give the factory its tree, slot, cache, CPU budget and task tool | Factory |
 | `/warden:factory-shift` | Run the factory's working loop | Factory |
 | `/warden:train` | Run one train | Factory |
-| `/warden:factory-health` | Watch disk, cache, slot, dock and worktrees | Factory |
+| `/warden:factory-health` | Watch disk, cache, slot, dock, halts and worktrees; clean the factory's own tree | Factory |
+| `/warden:release` | Build a release of a commit of the main branch, fingerprinted; publishing waits for the person | Factory |
 
 The agent `warden:factory` ([agents/factory.md](../agents/factory.md)) is the factory's fixed profile. It preloads the factory skills, plus `task` and `proof`. Start it with `claude --agent warden:factory`.
 

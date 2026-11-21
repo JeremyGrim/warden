@@ -11,7 +11,8 @@ The plugin ships the factory as a Claude Code agent, `warden:factory` ([agents/f
 | `factory-setup` | Its tree, its declaration, the shared slot and dock, the build cache, the CPU and memory budget, the budgets to size, the fixes policy, the task tool |
 | `factory-shift` | The working loop: wait, train, report, scenarios on a build of what went up, health |
 | `train` | One train, and the recovery of an interrupted one |
-| `factory-health` | Disk, memory, cache, slot, dock and worktrees, with cleanups proposed and never applied alone |
+| `factory-health` | Disk, memory, cache, slot, dock, halts and worktrees; its own tree cleaned, every other cleanup proposed |
+| `release` | A release of a commit of the main branch, built in its own tree and fingerprinted; publishing it is the person's word |
 | `task` | Task notes, when a tracker is set |
 | `proof` | Done with proof, or NOT DONE |
 
@@ -32,18 +33,19 @@ To try the plugin from a local clone without installing it: `claude --plugin-dir
 5. **Budgets**: the defaults of `config/disk.json` and `config/factory.json` come from one workstation; size them (see [Configuration](configuration.md)).
 6. **What the factory may commit**: `fixes` in `config/factory.json`.
 7. **Task tool**: `git config warden.tasks <tool>` (see [Skills](skills.md)).
+8. **Release**, when the project ships one: the `release` section of `config/factory.json` (see below).
 
 ## The shift
 
-1. `status.mjs --json`: the role must be `factory`, the tree clean, the slot free or held by this tree. After an interrupted train, `train.mjs recover`.
-2. `disk.mjs guard` before a train that builds. The train checks the memory itself.
-3. `train.mjs watch` returns as soon as a branch is docked.
-4. `train.mjs run --agent <factory name>`.
-5. Read the result: what went up, what was set aside with its cause and its log, what waits.
+1. `status.mjs --json`: the role must be `factory`, the tree clean, the slot free or held by this tree. A train recovers an interrupted one by itself.
+2. `disk.mjs guard` before a train that builds. Over budget in its own tree, the factory cleans it: `disk.mjs clean --own --apply`. The train checks the memory itself.
+3. `train.mjs watch` returns as soon as a train is worth leaving. Exit code 75: a halt outlived its notice threshold; say it once to whoever can act, then watch again.
+4. `train.mjs run --agent <factory name>`. Exit code 75: the train halted and blamed nobody; `watch` again.
+5. Read the result: what went up, what was set aside with its class, cause and log, what waits, and what was not run.
 6. Build the pushed commit in a separate tree, play the docked `scenario` journeys there, and note the results with the commit.
 7. Append one line per train to `.work/factory-log.md`.
 
-Stop when the person says so, when the machine is saturated or the usage budget is low, or when a train fails for a reason that is not a branch: a red main branch, low memory, a lost remote. See [Merge train](merge-train.md).
+Stop when the person says so, or when the machine is saturated or the usage budget is low. A halt is not a stop: the train leaves again by itself once its cause can have changed (a new commit of the main branch, a repair docked, memory back). A lost remote or a failed push stops the shift: report it. See [Merge train](merge-train.md).
 
 ## Authority
 
@@ -51,12 +53,14 @@ The factory may:
 
 - take the slot;
 - run trains, and recover its own tree after an interrupted one;
+- clean what regenerates in its own tree (`disk.mjs clean --own --apply`);
+- build a release of a commit of the main branch (`release.mjs build`);
 - push the train branch to the main branch;
 - mark deposits refused, through the train;
 - note tasks;
 - commit on its own branch only what `fixes` in `config/factory.json` allows: `version`, `lock`, `generated` by default, `lint` when the project adds it;
 - play scenarios on a build of the pushed commit, in a separate tree;
-- measure the disk and the memory, and propose cleanups.
+- measure the disk and the memory, and propose the cleanups of other trees.
 
 The factory never:
 
@@ -65,6 +69,29 @@ The factory never:
 - runs two trains at once, or a second big build during a train;
 - stops, suspends or closes a process of the person or of another agent, an application of the person included;
 - takes a message relayed by another agent as the person's agreement;
-- publishes anything outside the repository without the person's word: no tag, no release, no store submission;
-- applies a cleanup, removes a worktree, or changes the workstation configuration without the person's word;
+- publishes anything outside the repository without the person's word: no tag, no published release, no store submission;
+- cleans another tree, removes a worktree, or changes the workstation configuration without the person's word;
 - decides a product choice.
+
+## Release
+
+A release is a frozen commit of the main branch: only what went up through the train. In `config/factory.json`:
+
+```json
+"release": {
+  "build": ["pnpm", "tauri", "build"],
+  "artifacts": ["target/release/bundle/msi/*.msi", "target/release/bundle/nsis/*-setup.exe"],
+  "sign": ["node", "scripts/sign.mjs"],
+  "check_signature": ["signtool", "verify", "/pa", "{file}"]
+}
+```
+
+`node scripts/warden/release.mjs build --commit <sha> [--label <name>]`:
+
+1. refuses a commit that is not on the main branch, and refuses while the slot is held: one big build at a time;
+2. checks the commit out in `.work/release-tree`, a worktree of its own, never the train tree; it never counts in the worktree budget;
+3. removes the artifacts of an earlier release, installs (`train.install`), builds;
+4. signs when `sign` is set, and checks each signature when `check_signature` is set. The key stays in the workstation's environment; the signing output is shown only when it fails, and written nowhere;
+5. copies the artifacts to `.work/releases/<label>/`, with `SHA256SUMS` and `release.json`, and writes one line to the history.
+
+Publishing (a tag, a store, a download page) is the person's decision. The factory reports the folder and the fingerprints, then waits for their word.

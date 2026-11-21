@@ -1,10 +1,11 @@
 {
   "name": "warden",
   "displayName": "Warden",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Repository rules that Git enforces for every agent and human: rules at commit, scoped verification at push, one push slot, and a merge train driven by a single factory agent. Ships the onboarding, the factory profile and its skills. Nothing is recorded from the session; every check goes through Git.",
   "author": { "name": "ARKA LABS" },
   "homepage": "https://github.com/JeremyGrim/warden",
   "repository": "https://github.com/JeremyGrim/warden",
+  "license": "Apache-2.0",
   "keywords": ["git", "hooks", "multi-agent", "merge-train", "rules", "verification", "factory"]
 }

@@ -21,8 +21,9 @@ Le code étranger entre avec une raison nommée dans `config/rules.json` (`forei
 
 Un document dit ce qui est vrai aujourd'hui. Ce qui ne l'est plus se corrige ou se supprime : Git garde le passé.
 
-- **[contrôlée]** `docs/` compte 15 fichiers au plus, sans date dans le nom, sans compte rendu, brief, audit ni plan.
-- **[contrôlée]** Aucun document ne se déclare historique, archivé ou informatif. Il n'a alors plus sa place ici.
+- `docs/` reste court, sans date dans le nom, sans compte rendu, brief, audit ni plan.
+- Aucun document ne se déclare historique, archivé ou informatif. Il n'a alors plus sa place ici.
+- Ces deux règles se contrôlent en déclarant `docs` dans `config/rules.json` ; elles se marquent alors **[contrôlée]** ici.
 
 ## 3. L'architecture
 
@@ -39,7 +40,7 @@ Un document dit ce qui est vrai aujourd'hui. Ce qui ne l'est plus se corrige ou 
 - Seule la fabrique pousse sur la branche principale. Un agent pousse sa branche, jamais la branche principale.
 - On ne contourne pas un contrôle (`--no-verify`) : on corrige, ou on propose de changer la règle.
 - **[contrôlée]** Rien ne vérifie le dépôt hors du poste. Le crochet de push joue le règlement, les gardes des scripts, puis `node scripts/warden/verify.mjs push` : ce que `config/factory.json` demande pour les fichiers que la poussée change. Le commit poussé doit être celui de l'arbre, sans modification suivie. Une seule poussée vers la branche principale à la fois sur le poste : le crochet prend le créneau (`.work/push-slot` de la racine), refuse avant toute vérification si la branche principale a bougé, et le rend quand le distant porte le commit.
-- L'agent ne contrôle que ce qu'il touche. Sa branche prête se dépose dans `.work/train-ready/<session>.txt` : `tree`, `branch`, `commit` (le commit contrôlé, le seul pris), `tasks`, `docked` (`jj/mm hh:mm`), et `scenario` si le changement se voit à l'écran. Elle est rebasée sur la branche principale et verte sur son périmètre ; deux dépôts en attente au plus par agent. La fabrique conduit `node scripts/warden/train.mjs run --agent <nom>` : quatre branches au plus par lot, vérifiées ensemble, la fautive cherchée par moitiés. Une branche laissée de côté reçoit une ligne `refused =` qui nomme l'étape en échec, sa première erreur et le journal : son auteur corrige, rebase et dépose à nouveau avec le nouveau commit, sans la ligne.
+- L'agent ne contrôle que ce qu'il touche. Sa branche prête se dépose dans `.work/train-ready/<session>.txt` : `tree`, `branch`, `commit` (le commit contrôlé, le seul pris), `tasks`, `docked` (`jj/mm hh:mm`), et `scenario` si le changement se voit à l'écran. Elle est rebasée sur la branche principale et verte sur son périmètre ; deux dépôts en attente au plus par agent. La fabrique conduit `node scripts/warden/train.mjs run --agent <nom>` : quatre branches au plus par lot, vérifiées ensemble, la fautive cherchée par moitiés. Une branche laissée de côté reçoit un refus à côté de son dépôt (`<session>.refusal.json` : classe, étape, première erreur, journal, `next`) : son auteur corrige ou rebase, puis inscrit le nouveau commit dans le dépôt, qui repart. Un train en halte sur une branche principale rouge ne met personne en cause : la réparation est un dépôt comme un autre.
 - Un travail est fini quand une preuve exécutée le montre, et une commande réussie ne prouve que ce qu'elle contrôle. Tant qu'un écart reste ouvert, on écrit **PAS FINI**. Aucun succès simulé. On dit d'abord ce qui n'est pas prouvé.
 - Aucune restriction sans fondement : la décision du responsable du dépôt, ou « provisoire : <condition> ».
 - Remplacer un chemin, c'est supprimer l'ancien.

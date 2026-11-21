@@ -33,7 +33,8 @@ Read `AGENTS.md` in full. It is the only source of rules. `CLAUDE.md` only point
 
 ## 4. Deal with what waits for you
 
-- **A refused deposit** in `mine` comes first. Read its cause, fix, rebase, check your scope, then remove the `refused =` line (`/warden:dock`).
+- **A refused deposit** in `mine` comes first. Read `refusal` (class, step, first error, log, `next`), fix or rebase, check your scope, commit, then dock the new commit (`/warden:dock`).
+- **A halt** in `dock.halt` blames nobody. When its class is `baseline` and the cause is yours to repair, the repair is a deposit like any other.
 - **A task tool** (`task_tool: set`): read your tasks with its `status` gesture (`/warden:task`). Without one, there is no tracking: say so once.
 - **On the main branch as an agent**: create your work branch before your first edit.
 

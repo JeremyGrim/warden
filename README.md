@@ -71,7 +71,7 @@ git config warden.factory "<absolute path of the factory tree>"
 claude --agent warden:factory
 ```
 
-Once a factory tree is declared, the train refuses to run anywhere else. The factory sets itself up (`/warden:factory-setup`), runs its shift (`/warden:factory-shift`), takes each train (`/warden:train`), and watches the workstation (`/warden:factory-health`). The shared build cache, the CPU budget and the push slot are part of its setup. See the [Factory guide](docs/factory-guide.md) and [Build cache](docs/build-cache.md).
+Once a factory tree is declared, the train refuses to run anywhere else. The factory sets itself up (`/warden:factory-setup`), runs its shift (`/warden:factory-shift`), takes each train (`/warden:train`), watches the workstation (`/warden:factory-health`) and builds releases (`/warden:release`). A train that cannot tell whose fault a failure is halts and blames nobody, then resumes by itself; no person is a relay for an ordinary unblocking. The shared build cache, the CPU budget and the push slot are part of its setup. See the [Factory guide](docs/factory-guide.md) and [Build cache](docs/build-cache.md).
 
 ## What Warden checks
 
@@ -79,11 +79,12 @@ Once a factory tree is declared, the train refuses to run anywhere else. The fac
 |---|---|---|
 | Commit | The rules, on the staged files, read from the index | `rules.mjs --staged` |
 | Push | The rules on the whole tree, boundaries included | `rules.mjs` |
-| Push | The script guards: `node --test "scripts/**/*.test.mjs"` | — |
+| Push | The script guards; the kit's own tests only when the kit, Node or Git changed | `guards.mjs` |
 | Push | The disk budgets, as a warning | `disk.mjs guard --warn` |
-| Push | The push scope, per `config/factory.json`; the push slot to the main branch | `verify.mjs push` |
-| Factory | The merge train: batches, one trial, culprit by halves | `train.mjs run` |
-| On demand | Everything at once | `verify.mjs all` |
+| Push | The push scope, per `config/factory.json`; the push slot to the main branch. An incident of the workstation is replayed once; a check that could not run is "not run", never passed | `verify.mjs push` |
+| Factory | The merge train: batches, one trial, culprit by halves, a class for every failure, structured refusals, halts that blame nobody | `train.mjs run` |
+| Factory | A release of a commit of the main branch, fingerprinted | `release.mjs build` |
+| On demand | Everything at once; the local history | `verify.mjs all`, `status.mjs --history` |
 
 The rules cover:
 
@@ -157,12 +158,17 @@ claude plugin validate .
   - refused commits;
   - verified and refused pushes;
   - a crossed boundary;
-  - two trains, one of them with a culprit;
-  - a red main branch that blames no branch;
-  - an interrupted train, recovered;
+  - the kit tests spared when the kit did not change, and run when it did;
+  - trains, one of them with a culprit, its structured refusal and its return on a new commit;
+  - an incident of the workstation replayed once;
+  - a red main branch that blames no branch, then lifts with its repair;
+  - a check that could not run, never counted as passed;
+  - a release, fingerprinted;
+  - an interrupted train, recovered by hand and by the next train;
+  - the local history;
   - the factory role;
   - the status an agent reads.
 
 ## License
 
-Not licensed yet. The repository is private until a license is chosen.
+Apache License 2.0: see [LICENSE](LICENSE).

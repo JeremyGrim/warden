@@ -21,8 +21,9 @@ Foreign code enters with a named reason in `config/rules.json` (`foreign_code`) 
 
 A document says what is true today. What no longer is gets fixed or deleted: Git keeps the past.
 
-- **[checked]** `docs/` holds 15 files at most, with no date in a name, and no report, brief, audit or plan.
-- **[checked]** No document declares itself historical, archived or informational. It would no longer belong here.
+- `docs/` stays short, with no date in a name, and no report, brief, audit or plan.
+- No document declares itself historical, archived or informational. It would no longer belong here.
+- These two are checked by declaring `docs` in `config/rules.json`; they are then marked **[checked]** here.
 
 ## 3. Architecture
 
@@ -39,7 +40,7 @@ A document says what is true today. What no longer is gets fixed or deleted: Git
 - Only the factory pushes to the main branch. An agent pushes its own branch, never the main branch.
 - No check is bypassed (`--no-verify`): fix the cause, or propose to change the rule.
 - **[checked]** Nothing verifies the repository outside the workstation. The push hook runs the rules, the script guards, then `node scripts/warden/verify.mjs push`: what `config/factory.json` asks for the files the push changes. The pushed commit must be the tree's, with no tracked modification. One push to the main branch at a time on the workstation: the hook takes the slot (`.work/push-slot` at the root), refuses before any verification when the main branch moved, and gives it back when the remote carries the commit.
-- An agent checks only what it touches. Its ready branch is docked in `.work/train-ready/<session>.txt`: `tree`, `branch`, `commit` (the commit checked, the only one taken), `tasks`, `docked` (`dd/mm hh:mm`), and `scenario` when the change shows on screen. It is rebased on the main branch and green on its scope; two pending deposits at most per agent. The factory runs `node scripts/warden/train.mjs run --agent <name>`: four branches at most per batch, verified together, the culprit found by halves. A branch set aside gets a `refused =` line naming the failed step, its first error and the log: its author fixes it, rebases and docks again with the new commit, without the line.
+- An agent checks only what it touches. Its ready branch is docked in `.work/train-ready/<session>.txt`: `tree`, `branch`, `commit` (the commit checked, the only one taken), `tasks`, `docked` (`dd/mm hh:mm`), and `scenario` when the change shows on screen. It is rebased on the main branch and green on its scope; two pending deposits at most per agent. The factory runs `node scripts/warden/train.mjs run --agent <name>`: four branches at most per batch, verified together, the culprit found by halves. A branch set aside gets a refusal next to its deposit (`<session>.refusal.json`: class, step, first error, log, `next`): its author fixes it or rebases, then writes the new commit in the deposit, which leaves again. A train that halts on a red main branch blames nobody: the repair is a deposit like any other.
 - Work is done when an executed proof shows it, and a successful command only proves what it checks. While a gap stays open, write **NOT DONE**. No simulated success. Say first what is not proven.
 - No restriction without a basis: the decision of the repository owner, or "provisional: <condition>".
 - Replacing a path means deleting the old one.

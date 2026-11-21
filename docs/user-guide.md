@@ -39,7 +39,7 @@ Then review the configuration, run the rules, and commit:
 
 ```bash
 node scripts/warden/rules.mjs
-node --test "scripts/**/*.test.mjs"
+node scripts/warden/guards.mjs --all
 git add scripts/warden .githooks config AGENTS.md CLAUDE.md .gitignore .gitattributes
 git commit -m "Repository rules, checked by Warden"
 ```

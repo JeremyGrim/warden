@@ -3,8 +3,8 @@
 // not checked. What belongs to one workstation (a path, a tool) is set with `git config warden.<key>` and is never
 // committed.
 
-import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -16,8 +16,18 @@ export const FACTORY_DEFAULTS = {
   remote: 'origin',
   work_dir: '.work',
   slot: { name: 'push-slot', log: null },
-  verify: { rust: null, npm_advisories: null, steps: [], all: [] },
-  train: { branch: 'warden-train', dock: 'train-ready', max_batch: 4, install: null, build: null, min_free_memory_gib: 8, memory_per_job_gib: 2 },
+  // `when_missing`: what a check asked for and not run does. `record`: the commit goes up marked "not run"; `block`:
+  // it waits. Never counted as passed either way.
+  verify: { rust: null, npm_advisories: null, steps: [], all: [], when_missing: 'record', transient_patterns: [] },
+  train: {
+    branch: 'warden-train', dock: 'train-ready', max_batch: 4, install: null, build: null, min_free_memory_gib: 8, memory_per_job_gib: 2,
+    // A halted train tries again after `retry_minutes`; past `halt_notice_minutes`, `watch` says it once.
+    retry_minutes: 10, halt_notice_minutes: 30,
+  },
+  history: { keep_days: 90 },
+  // The factory's release: `build` (a command), `artifacts` (paths, `*` in the last segment), `sign` and
+  // `check_signature` (optional commands; `{file}` is each artifact). Null: no release.
+  release: null,
   // What the factory may commit itself, on its own branch taken with `--with`: everything else goes back to the author.
   fixes: ['version', 'lock', 'generated'],
 };
@@ -41,6 +51,7 @@ export function readFactory(root = ROOT) {
     slot: { ...D.slot, ...given.slot },
     verify: { ...D.verify, ...given.verify },
     train: { ...D.train, ...given.train },
+    history: { ...D.history, ...given.history },
   };
 }
 
@@ -67,4 +78,26 @@ export function run(command, options = {}) {
   const { NODE_TEST_CONTEXT, ...env } = options.env ?? process.env;
   void NODE_TEST_CONTEXT;
   return spawnSync(program, args, { windowsHide: true, shell, ...options, env });
+}
+
+// A command run to its end, its output printed live, kept, and written to `log` when given: the class of a failure is
+// read from it. Returns `{ status, signal, missing, text }`; `missing` when the program could not start at all.
+export function runCaptured(command, { cwd = ROOT, log = null, input = null, env = process.env, quiet = false } = {}) {
+  const { program, args, shell } = stationCommand(command);
+  const { NODE_TEST_CONTEXT, ...childEnv } = env;
+  void NODE_TEST_CONTEXT;
+  return new Promise((done) => {
+    let text = '';
+    const child = spawn(program, args, { cwd, env: childEnv, shell, windowsHide: true, stdio: [input === null ? 'ignore' : 'pipe', 'pipe', 'pipe'] });
+    const keep = (stream) => (chunk) => {
+      if (!quiet) stream.write(chunk);
+      if (log) appendFileSync(log, chunk);
+      if (text.length < 1 << 23) text += chunk.toString('utf8');
+    };
+    child.stdout.on('data', keep(process.stdout));
+    child.stderr.on('data', keep(process.stderr));
+    if (input !== null) child.stdin.end(input);
+    child.on('error', (error) => done({ status: null, signal: null, missing: error.code === 'ENOENT', text: `${text}\n${error.message}` }));
+    child.on('close', (status, signal) => done({ status, signal, missing: false, text }));
+  });
 }

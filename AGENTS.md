@@ -17,7 +17,8 @@ This repository holds the Warden kit and the Claude Code plugin that installs it
 
 - No Claude Code hook on tool calls. The only hook runs at session start, and it says nothing when all is well.
 - A skill names a gesture and uses the kit's commands. It never repeats a check Git already makes.
-- The factory agent has no authority beyond the train: no product code, no workstation change and no cleanup without the person's word.
+- The factory agent has no authority beyond the train, its own tree and its releases: no product code, no workstation change, no cleanup of another tree and no publication without the person's word.
+- No person is a relay for an ordinary unblocking: a result the rules can classify says what comes next by itself.
 
 ## The repository
 

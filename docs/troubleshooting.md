@@ -30,19 +30,39 @@ It counts as passed, and the output names it "to watch". A timed test on a satur
 
 ## A deposit keeps being set aside
 
-Read its `refused =` line: the step that failed, its first error, and the path of the train log. Fix it, rebase, check your scope, then dock again with the new `commit`, without the line. A branch whose tree no longer exists is taken from the local branch of the same name when the repository still has it; otherwise it is refused with "branch not found".
+Read `<session>.refusal.json` next to it, or `status.mjs --agent <name> --json` (`mine[].refusal`): the class, the step, the rule and paths, the first error, the log, and `next`. Fix it or rebase, check your scope, commit, then write the new `commit` in the deposit; the refused line can stay. The same commit docked again stays refused. A branch whose tree no longer exists is taken from the local branch of the same name when the repository still has it; otherwise it is refused with "branch not found".
 
-## "a previous train was interrupted in this tree"
+## A deposit refused before 0.4.0 does not leave
 
-A train was killed, ran out of memory or lost power. In the factory tree, run `node scripts/warden/train.mjs recover`, then `node scripts/warden/train.mjs run --dry-run`. `recover` refuses while the train process is still alive.
+It has a `refused =` line and no refusal file: remove the line once, as before.
 
-## "The main branch is red on its own"
+## "a train is still running in this tree"
 
-Every branch of the batch failed, and so did the main branch alone, or the advisories failed on the main branch. No branch was refused. Read the cause and the log: a new advisory, a broken test on the main branch, a tool that changed on the workstation. Repair the main branch through a branch of its own; the next train takes the waiting deposits.
+The recorded train process is alive. Wait for it. When it is gone, the next train recovers the tree by itself; `node scripts/warden/train.mjs recover` does the same by hand.
+
+## "The main branch … is red on its own"
+
+Every branch of the batch failed and so did the main branch alone, or an incident survived its replay there too. No branch was refused, and the train halted (exit code 75, `_halt.json`). Read the cause and the log: a broken test on the main branch, a tool that changed on the workstation. Repair it through a deposit like any other: the next train leaves as soon as the main branch moves or the dock changes, and takes the waiting deposits with the repair. Until then a train does not leave for nothing ("is still red").
+
+## "The advisories fail on … alone"
+
+A new advisory concerns a dependency of the main branch. No branch is blamed: each trial checks the advisories first, so only a batch that bumps the dependency goes up. Dock that bump.
 
 ## "Memory: … free to commit"
 
-The train did not leave. Something holds the workstation's memory: name it to the person. The factory never stops a process to free memory. The threshold is `train.min_free_memory_gib`.
+The train halted on the memory. `watch` waits for it to come back, and says it once past `train.halt_notice_minutes`. Something holds the workstation's memory: name it to the person. The factory never stops a process to free memory. The threshold is `train.min_free_memory_gib`.
+
+## "replayed once" after an incident
+
+A step failed with an incident of the workstation (memory, a file held, the network) and was replayed. It passed: nothing to do. If it fails again, the train verifies the main branch alone: when the main branch passes, the branch is refused as a `defect` (it may exhaust the memory by itself); when it fails too, the train halts.
+
+## "not run, …" / "Not run on this train, so not verified"
+
+A check asked for could not run: a tool absent, no advisory database. It is never counted as passed. With `verify.when_missing = record`, the commit goes up and its notes say what was not verified; with `block`, the push and the train wait. Install the missing tool on the workstation, or keep the advisory database (`npm-audit.mjs` says how).
+
+## "Kit guards: already passed"
+
+The kit's own tests passed in this clone on the same kit files, Node, Git and platform: they are not run again. The fingerprint and the project's script tests still run. `node scripts/warden/guards.mjs --all` runs everything.
 
 ## Messages in the wrong language
 

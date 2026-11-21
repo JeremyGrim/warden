@@ -2,7 +2,9 @@ import './git-env.mjs';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { chooseBatch, firstError, jobsFor, MAX_BATCH, noteCommand, notYetTaken, readDeposit, readyDeposits, sortOut } from './train.mjs';
+import { readDeposit, readyDeposits } from './dock.mjs';
+import { firstError } from './outcome.mjs';
+import { chooseBatch, haltClass, jobsFor, MAX_BATCH, noteCommand, notYetTaken, sortOut } from './train.mjs';
 
 const NOW = new Date(2026, 10, 12, 9, 0).getTime();
 
@@ -115,4 +117,11 @@ test('a single failing deposit goes out with no other trial', async () => {
 test('a note follows the tracking contract, through Node for a script, as is otherwise', () => {
   assert.deepEqual(noteCommand('/tools/task.mjs', 'factory', 'T1', 'up'), ['node', '/tools/task.mjs', 'note', 'T1', 'up', '--agent', 'factory']);
   assert.deepEqual(noteCommand('task', 'factory', 'T1', 'up'), ['task', 'note', 'T1', 'up', '--agent', 'factory']);
+});
+
+test('a failure of the main branch alone halts the train with a class, and blames nobody', () => {
+  assert.equal(haltClass('defect'), 'baseline');
+  assert.equal(haltClass('violation'), 'baseline');
+  assert.equal(haltClass('transient'), 'transient');
+  assert.equal(haltClass('incomplete'), 'incomplete');
 });

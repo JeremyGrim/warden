@@ -15,7 +15,7 @@ Nothing that describes a project is written in a kit script. The project describ
 | `secrets` (`name`, `pattern`), `secret_exceptions` | A key, a token or a machine path. An exception names a path and a kind, with its reason |
 | `foreign_code` | Nothing: named foreign code escapes lines and size, not secrets |
 | `single_source` (`file`, `points_to`, `max_lines`) | A `CLAUDE.md` that carries rules instead of pointing to `AGENTS.md` |
-| `docs` (`dir`, `max_files`, `forbidden_names`, `forbidden_status`) | Too many documents, a dated or report-like name, a document that calls itself historical |
+| `docs` (`dir`, `max_files`, `forbidden_names`, `forbidden_status`) | Too many documents, a dated or report-like name, a document that calls itself historical. Not in the model since 0.4.0: add it when the project wants it (example below) |
 | `versions` (`file`, `read`) | Two manifests that state two versions. `read` is `json:<key.key>` or `toml:<table.key>` |
 | `boundaries.rust`, `boundaries.node` | A zone that reaches a forbidden zone or package, even transitively |
 | `single_test_binary` (`zones`) | More than one integration test binary per crate |
@@ -41,6 +41,19 @@ A boundary rule:
 
 An `except` list only shrinks: an exception that no longer serves is refused.
 
+The `docs` doctrine, as the repository Warden comes from checks it:
+
+```json
+"docs": {
+  "dir": "docs/",
+  "max_files": 15,
+  "forbidden_names": ["^(CR|BRIEF|AUDIT|PLAN|SPEC|REPORT|HANDOFF|MINUTES|PROGRESS)[-_ .]", "\\d{8}", "\\d{4}-\\d{2}-\\d{2}"],
+  "forbidden_status": "status\\s*:\\s*\\**\\s*(archiv|histor|informational|obsolete|deprecated|superseded)"
+}
+```
+
+A tool folder such as `.claude` or `.agents` is allowed by the model since 0.4.0: Claude Code invites you to commit `.claude/settings.json`. Add the segment to `forbidden_segments` if your repository keeps it out.
+
 The `secrets` model admits one fictitious user name in test paths: `person`, its own folder included (`C:\Users\person`, `/home/person/`). Neighbouring names such as `person2` or `person.x` are refused. Change the name in the `machine path` pattern if your tests use another one.
 
 ## `config/factory.json`
@@ -54,11 +67,17 @@ The `secrets` model admits one fictitious user name in test paths: `person`, its
 | `verify.npm_advisories` | `lockfile`: the pnpm lockfile compared to a local clone of the GitHub Advisory Database |
 | `verify.steps` | `{ title, when, command, unchanged }`: `when` lists path patterns, `command` is an array, `unchanged` lists paths the command must not change (generated files) |
 | `verify.all` | Extra steps for `verify.mjs all` |
+| `verify.when_missing` | What a check asked for and not run does (a tool absent, no advisory database): `record` (default) lets the commit go, recorded as not verified on it; `block` makes it wait. Never counted as passed |
+| `verify.transient_patterns` | Extra patterns of workstation incidents, read line by line: a step that fails with one is replayed once (see [merge-train.md](merge-train.md#classes)) |
 | `train.branch`, `train.dock`, `train.max_batch` | The train branch, the dock folder name, the batch size (4) |
 | `train.install` | `{ lockfile, command }`: installed again when the lockfile changes |
 | `train.build` | `{ title, command }`: the build run once per trial |
-| `train.min_free_memory_gib` | Below this memory free to commit, the train does not leave (8) |
+| `train.min_free_memory_gib` | Below this memory free to commit, the train halts and `watch` waits for it (8) |
 | `train.memory_per_job_gib` | The memory a build job may take: the train's jobs are bounded by it (2) |
+| `train.retry_minutes` | A train halted by an incident tries again after this delay, or sooner when the dock changes (10) |
+| `train.halt_notice_minutes` | Past this delay, `watch` says the halt once, with exit code 75 (30) |
+| `history.keep_days` | The local history keeps this many days once it passes 512 KiB (90) |
+| `release` | `build` (a command), `artifacts` (paths, `*` in the last segment), optional `sign` (a command) and `check_signature` (a command where `{file}` is each artifact). See [factory-guide.md](factory-guide.md#release) |
 | `fixes` | What the factory may commit itself, on its own branch: `version`, `lock`, `generated`, `lint`. Default: the first three |
 
 Every default comes from one workstation: size them for yours.

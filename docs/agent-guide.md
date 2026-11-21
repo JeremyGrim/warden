@@ -9,7 +9,7 @@ An agent never infers the project state, its role or its identity. It reads them
    - `factory`: work as the factory (`claude --agent warden:factory`), never as an agent in that tree;
    - `agent`: work on a branch of your own;
    - `unset`: ask the person once. Never decide it alone.
-5. Handle a refused deposit first: read the cause, fix, rebase, then remove the `refused =` line.
+5. Handle a refused deposit first: read its refusal (`mine[].refusal`: class, step, first error, log, `next`), fix or rebase, commit, then write the new `commit` in the deposit. A halted train (`dock.halt`) blames nobody; a red main branch is repaired by a deposit like any other.
 6. If a task tool is set, read your tasks with its `status` gesture.
 7. Report in five lines, then work.
 

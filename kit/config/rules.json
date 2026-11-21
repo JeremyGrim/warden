@@ -25,10 +25,7 @@
     "temp",
     ".input",
     ".work",
-    ".cache",
-    ".claude",
-    ".codex",
-    ".agents"
+    ".cache"
   ],
   "forbidden_extensions": [
     ".exe", ".dll", ".so", ".dylib", ".pdb", ".rlib", ".rmeta",
@@ -39,16 +36,6 @@
   ],
   "forbidden_lockfiles": ["package-lock.json", "yarn.lock", "bun.lockb", "bun.lock"],
   "single_source": { "file": "CLAUDE.md", "points_to": "AGENTS.md", "max_lines": 3 },
-  "docs": {
-    "dir": "docs/",
-    "max_files": 15,
-    "forbidden_names": [
-      "^(CR|BRIEF|AUDIT|PLAN|SPEC|REPORT|HANDOFF|MINUTES|PROGRESS)[-_ .]",
-      "\\d{8}",
-      "\\d{4}-\\d{2}-\\d{2}"
-    ],
-    "forbidden_status": "status\\s*:\\s*\\**\\s*(archiv|histor|informational|obsolete|deprecated|superseded)"
-  },
   "secrets": [
     { "name": "private key", "pattern": "-----BEGIN [A-Z ]*PRIVATE KEY-----" },
     { "name": "GitHub token", "pattern": "\\b(ghp|gho|ghs|ghu)_[A-Za-z0-9]{36}\\b|\\bgithub_pat_[A-Za-z0-9_]{40,}\\b" },

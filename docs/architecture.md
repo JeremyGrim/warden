@@ -25,9 +25,14 @@ warden (this repository)
 |---|---|
 | `rules.mjs`, `checks.mjs`, `boundaries.mjs` | The rules; the per-file and tree checks; the Rust and Node boundary adapters |
 | `verify.mjs` | The push verification, `all`, the slot keep-alive and release |
+| `guards.mjs` | The script guards of a push and a trial; the kit's own tests only when they can give another answer |
+| `outcome.mjs` | The class of a result (`violation`, `defect`, `conflict`, `transient`, `incomplete`, `baseline`), workstation incidents, structured refusals |
 | `slot.mjs` | The push slot |
-| `train.mjs` | The dock and the train |
-| `status.mjs` | The state an agent or the factory reads |
+| `dock.mjs` | The dock: deposits, refusals, the halt |
+| `train.mjs` | The train |
+| `release.mjs` | A release of a commit of the main branch, in its own tree, fingerprinted |
+| `history.mjs` | The local history of pushes, guards, trains and releases, and its summary |
+| `status.mjs` | The state an agent or the factory reads; the history summary |
 | `disk.mjs`, `priority.mjs` | Disk budgets and cleaning; CPU priority during a train |
 | `npm-audit.mjs` | npm advisories against a local database clone |
 | `config.mjs`, `messages*.mjs` | Reading the project configuration and workstation settings; display text in English and French |
@@ -51,4 +56,4 @@ The installer replaces an unedited file and removes one a previous version insta
 
 - Rule identifiers, configuration keys, commands and `status.mjs --json` are canonical English.
 - Display text goes through `messages.mjs`, with an English catalog and a French one. The `messages.test.mjs` guard checks that both catalogs have the same keys and placeholders.
-- Scripts and agents rely on identifiers and JSON, never on display text.
+- Scripts and agents rely on identifiers and JSON, never on display text: exit codes (0, 1, 3 for "not run", 75 for a halt), `<session>.refusal.json`, `_halt.json`, `status.mjs --json`, `warden-history.jsonl`.

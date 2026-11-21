@@ -7,17 +7,22 @@
 //   node scripts/warden/verify.mjs files        the files named on standard input, one per line (the train)
 //   node scripts/warden/verify.mjs advisories   the dependency advisories alone, whatever changed (the train, on main)
 //
-// A failing step stops the verification, and the exit code says so.
+// A failing step stops the verification. Exit code: 0 passed, 1 a gap, 3 (`files`, `advisories`, `all`) everything
+// that ran passed but a check asked for did not run; a push applies `verify.when_missing` itself. Each failed step gets
+// a class (outcome.mjs): an incident of the workstation is replayed once; a tool that is not there is "not run", never
+// passed. With WARDEN_REPORT set, each step is also written there, one JSON line each: the train reads it.
 
 import { spawn, spawnSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { readFactory, ROOT, run, stationSetting } from './config.mjs';
+import { readFactory, ROOT, runCaptured, stationSetting } from './config.mjs';
+import { appendHistory, historyPath } from './history.mjs';
 import { t } from './messages.mjs';
 import { advisoryDatabase } from './npm-audit.mjs';
+import { EXIT_INCOMPLETE, missingTool, transientCause } from './outcome.mjs';
 import { refresh, release, releaseOnArrival, slotFolder, take } from './slot.mjs';
 
 const ZERO = /^0+$/;
@@ -106,47 +111,77 @@ export function failedTests(output) {
   return [...new Set([...output.matchAll(/^test (\S+) \.\.\. FAILED\r?$/gm)].map((m) => m[1]))];
 }
 
+// What this run verified, step by step, and what it could not run.
+const records = [];
+function record(entry) {
+  records.push(entry);
+  if (process.env.WARDEN_REPORT) appendFileSync(process.env.WARDEN_REPORT, `${JSON.stringify(entry)}\n`);
+}
+const notRunTitles = () => records.filter((r) => r.kind === 'not_run').map((r) => r.title);
+
+// A check asked for that cannot run is said and recorded: it never counts as passed.
+function notRun(title, reason) {
+  console.log(t('verify.not_run', { title, reason }));
+  record({ kind: 'not_run', title, reason });
+}
+
 // A step: `{ title, command, unchanged }`. `unchanged`: paths the command must not change (generated files, never
-// edited by hand).
-function step({ title, command, unchanged = [] }) {
+// edited by hand). Returns `pass`, `fail` or `incomplete`.
+async function step({ title, command, unchanged = [] }, extra = []) {
   console.log(`\n▶ ${title}`);
   const start = Date.now();
-  const tests = command[0] === 'cargo' && command[1] === 'test';
-  // Tests are read afterwards to know which ones failed; everything else prints live.
-  const out = run(command, { cwd: ROOT, stdio: tests ? ['inherit', 'pipe', 'inherit'] : 'inherit', encoding: 'utf8', maxBuffer: 1 << 30 });
-  if (tests) process.stdout.write(out.stdout ?? '');
   const duration = () => `${Math.round((Date.now() - start) / 1000)} s`;
+  const done = (ok, cls = null, retried = null) => {
+    record({ kind: 'step', title, ok, class: cls, seconds: (Date.now() - start) / 1000, retried });
+    return ok ? 'pass' : 'fail';
+  };
+  let out = await runCaptured(command);
+  if (out.status !== 0 && missingTool(out)) {
+    notRun(title, t('verify.tool_missing', { program: command.slice(0, 2).join(' ') }));
+    return 'incomplete';
+  }
+  // An incident of the workstation (memory, a file held, the network) is not the code: the step is replayed once.
+  const retried = out.status === 0 ? null : transientCause(out, extra);
+  if (retried) {
+    console.log(`\n${t('verify.incident_retry', { title, incident: retried })}`);
+    out = await runCaptured(command);
+    const again = out.status === 0 ? null : transientCause(out, extra);
+    if (again) {
+      console.error(t('verify.incident_failed', { title, duration: duration(), incident: again }));
+      return done(false, 'transient', retried);
+    }
+  }
   if (out.status === 0) {
     const changes = unchanged.length ? git(['status', '--porcelain', '--', ...unchanged]) : '';
     if (changes) {
       console.error(t('verify.unchanged_changed', { title, changes }));
       spawnSync('git', ['checkout', '--', ...unchanged], { windowsHide: true, cwd: ROOT });
-      return false;
+      return done(false, 'violation', retried);
     }
-    console.log(`✔ ${title} (${duration()})`);
-    return true;
+    console.log(`✔ ${title} (${duration()})${retried ? ` — ${t('verify.after_incident')}` : ''}`);
+    return done(true, null, retried);
   }
   // A timed test fails on a saturated workstation: each failed test is replayed once, alone with the other failed ones.
   // It only counts as passed if it passes; the report names it.
-  const failed = tests ? failedTests(out.stdout ?? '') : [];
+  const tests = command[0] === 'cargo' && command[1] === 'test';
+  const failed = tests ? failedTests(out.text) : [];
   if (failed.length && failed.length <= 20) {
     console.log(`\n${t('verify.retry', { count: failed.length, tests: failed.join(', ') })}`);
     const filtered = command.filter((a) => a !== '--no-fail-fast');
     const separator = filtered.indexOf('--');
     const before = separator < 0 ? filtered : filtered.slice(0, separator);
     const after = separator < 0 ? [] : filtered.slice(separator + 1);
-    const second = run([...before, '--no-fail-fast', '--', ...after, '--exact', ...failed], { cwd: ROOT, stdio: ['inherit', 'pipe', 'inherit'], encoding: 'utf8', maxBuffer: 1 << 28 });
-    const still = failedTests(second.stdout ?? '');
+    const second = await runCaptured([...before, '--no-fail-fast', '--', ...after, '--exact', ...failed]);
+    const still = failedTests(second.text);
     if (second.status === 0 && !still.length) {
       console.log(t('verify.retry_ok', { title, duration: duration(), tests: failed.join(', ') }));
-      return true;
+      return done(true, null, failed.join(', '));
     }
-    process.stdout.write(second.stdout ?? '');
     console.error(t('verify.retry_failed', { title, duration: duration(), tests: (still.length ? still : failed).join(', ') }));
-    return false;
+    return done(false, 'defect', failed.join(', '));
   }
   console.error(t('verify.failed', { title, duration: duration() }));
-  return false;
+  return done(false, 'defect', retried);
 }
 
 const cargoP = (names) => names.flatMap((name) => ['-p', name]);
@@ -155,10 +190,10 @@ const cargoP = (names) => names.flatMap((name) => ['-p', name]);
 const dependencyStep = (conf) => ({ title: t('verify.step.deny'), command: ['cargo', 'deny', '--config', conf.deny, 'check'] });
 
 // The npm advisories of the lockfile, compared on the workstation to a clone of the GitHub Advisory Database: nothing
-// goes online. With no clone on the workstation, the step says it is skipped.
+// goes online. With no clone on the workstation, the step is not run, and says so: never passed.
 function npmSteps(conf) {
   if (!advisoryDatabase()) {
-    console.log(t('verify.npm_skipped'));
+    notRun(t('verify.step.npm'), t('verify.npm_no_database'));
     return [];
   }
   return [{ title: t('verify.step.npm'), command: ['node', 'scripts/warden/npm-audit.mjs', '--lockfile', conf.lockfile] }];
@@ -185,9 +220,10 @@ function rustSteps(rust, conf) {
   return steps;
 }
 
-function play(steps) {
-  for (const s of steps) if (!step(s)) return false;
-  return true;
+// The steps in order; the first failure stops. `incomplete` when everything that ran passed and something was not run.
+async function play(steps, verify) {
+  for (const s of steps) if ((await step(s, verify.transient_patterns ?? [])) === 'fail') return 'fail';
+  return notRunTitles().length ? 'incomplete' : 'pass';
 }
 
 function metadata() {
@@ -259,6 +295,8 @@ async function pushCommand(input) {
     keepSlot(folder);
   }
   let passed = false;
+  let result = null;
+  const begin = Date.now();
   try {
     if (toMain) {
       const fetched = spawnSync('git', ['fetch', '--quiet', remote, main], { windowsHide: true, cwd: ROOT, encoding: 'utf8' });
@@ -273,12 +311,24 @@ async function pushCommand(input) {
     // The train has just verified this exact commit, in this tree, under this slot: it is not verified again.
     if (toMain && refs.length === 1 && alreadyVerified(toMain.local)) {
       console.log(t('verify.already', { commit: toMain.local.slice(0, 7) }));
+      result = 'already';
       passed = true;
     } else {
-      passed = verifyPush(refs, factory);
+      result = await verifyPush(refs, factory);
+      // A check that could not run: the push goes said "not run", or waits, as the project chose. Never "passed".
+      const block = factory.verify.when_missing === 'block';
+      if (result === 'incomplete') console.log(t(block ? 'verify.incomplete_block' : 'verify.incomplete_record', { steps: notRunTitles().join(', ') }));
+      passed = result === 'pass' || (result === 'incomplete' && !block);
     }
     return passed;
   } finally {
+    if (result) {
+      const steps = records.filter((r) => r.kind === 'step').map(({ title, seconds, ok, class: c, retried }) => ({ title, seconds, ok, class: c, retried }));
+      appendHistory(historyPath(stationSlot(factory)), {
+        kind: 'push', tree: ROOT, ref: refs[0].remoteRef, commit: refs[0].local, to_main: Boolean(toMain), result,
+        class: steps.find((s) => !s.ok)?.class ?? null, steps, not_run: notRunTitles(), seconds: (Date.now() - begin) / 1000,
+      }, { keepDays: factory.history.keep_days });
+    }
     if (folder && passed) releaseAfterPush(folder, toMain.local);
     else if (folder) release(folder, ROOT);
   }
@@ -297,7 +347,7 @@ function alreadyVerified(commit) {
   }
 }
 
-function verifyPush(refs, factory) {
+async function verifyPush(refs, factory) {
   const tracking = `${factory.remote}/${factory.main_branch}`;
   let files = [];
   for (const ref of refs) {
@@ -312,8 +362,8 @@ function verifyPush(refs, factory) {
 
 const hasRust = (verify) => Boolean(verify.rust) && spawnSync('git', ['ls-files', '--error-unmatch', 'Cargo.toml'], { windowsHide: true, cwd: ROOT }).status === 0;
 
-// What a list of changed files asks for, played on the working tree as it is.
-export function verifyFiles(files, factory = readFactory()) {
+// What a list of changed files asks for, played on the working tree as it is: `pass`, `fail` or `incomplete`.
+export async function verifyFiles(files, factory = readFactory()) {
   const { verify } = factory;
   const plan = pushPlan(files, hasRust(verify) ? workspacePackages(metadata()) : null, verify);
   const steps = [];
@@ -323,11 +373,11 @@ export function verifyFiles(files, factory = readFactory()) {
   if (plan.rust.all || plan.rust.clippy.length) steps.push(...rustSteps(plan.rust, verify.rust));
   if (!steps.length) {
     console.log(t('verify.nothing'));
-    return true;
+    return notRunTitles().length ? 'incomplete' : 'pass';
   }
   const scope = plan.rust.all ? t('verify.scope.rust_all') : plan.rust.clippy.length ? t('verify.scope.rust_some', { count: plan.rust.clippy.length }) : t('verify.scope.rust_none');
   console.log(t('verify.scope', { count: files.length, scope, steps: plan.steps.length }));
-  return play(steps);
+  return play(steps, verify);
 }
 
 // The advisories alone, whatever changed: a new advisory turns the main branch red without any branch, and the train
@@ -337,11 +387,11 @@ function advisoriesCommand() {
   const steps = [];
   if (hasRust(verify) && verify.rust.deny) steps.push(dependencyStep(verify.rust));
   if (verify.npm_advisories) steps.push(...npmSteps(verify.npm_advisories));
-  if (!steps.length) {
+  if (!steps.length && !records.length) {
     console.log(t('verify.no_advisories'));
-    return true;
+    return 'pass';
   }
-  return play(steps);
+  return play(steps, verify);
 }
 
 function allCommand() {
@@ -356,7 +406,7 @@ function allCommand() {
   steps.push(...(verify.steps ?? []));
   if (rust) steps.push(...rustSteps({ all: true }, verify.rust));
   steps.push(...(verify.all ?? []));
-  return play(steps);
+  return play(steps, verify);
 }
 
 async function main(argv) {
@@ -392,7 +442,8 @@ async function main(argv) {
 const launched = process.argv[1] && resolve(process.argv[1]).toLowerCase() === fileURLToPath(import.meta.url).toLowerCase();
 if (launched) {
   try {
-    process.exitCode = (await main(process.argv.slice(2))) ? 0 : 1;
+    const outcome = await main(process.argv.slice(2));
+    process.exitCode = outcome === 'incomplete' ? EXIT_INCOMPLETE : outcome === true || outcome === 'pass' ? 0 : 1;
   } catch (error) {
     console.error(t('verify.stopped', { message: error.message }));
     process.exitCode = 1;

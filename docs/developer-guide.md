@@ -27,9 +27,14 @@ On each, it installs the kit and plays:
 - refused commits (lines, secret, lockfile, root);
 - a boundary crossed and refused at push;
 - pushes verified on their scope, and pushes refused by a test or a step;
-- two trains, one with a culprit found by halves;
-- the factory role, refusing a train outside its tree;
-- the status an agent reads.
+- the kit tests spared on a push when the kit did not change, and run when it did;
+- trains, one with a culprit found by halves, its structured refusal, and its return on a new commit;
+- an incident of the workstation replayed once;
+- a red main branch that halts the train, blames nobody, and lifts with its repair;
+- a check that could not run, recorded or blocking;
+- a release, fingerprinted, in its own tree;
+- an interrupted train, recovered by hand and by the next train;
+- the history, the factory role, and the status an agent reads.
 
 It writes `report.md`, `verdicts.json` and one log per command. It needs Cargo, clippy and pnpm.
 

@@ -22,6 +22,20 @@ const LOCKFILES = { 'pnpm-lock.yaml': 'pnpm', 'package-lock.json': 'npm', 'yarn.
 // What triggers the project steps: everything except the kit, the configuration, the docs and the root .md files.
 const OUTSIDE_KIT = '^(?!(scripts/warden|\\.githooks|config|docs)/|[^/]+\\.md$)';
 const RUST_FULL = ['^Cargo\\.(toml|lock)$', '^rust-toolchain(\\.toml)?$', '^\\.cargo/'];
+// The pre-push hook as kits up to 0.3.0 wrote it: it ran every script test, the kit's own included, on each push.
+const PREVIOUS_PUSH_HOOKS = [
+  [
+    '#!/bin/sh',
+    '# Git gives on standard input what it pushes: the push verification reads it.',
+    '# The rules on the whole tree, the script guards, the disk (warning only), then the scope of the push.',
+    'refs=$(cat)',
+    'node scripts/warden/rules.mjs || exit 1',
+    'node --test "scripts/**/*.test.mjs" || exit 1',
+    'node scripts/warden/disk.mjs guard --warn',
+    'printf \'%s\\n\' "$refs" | node scripts/warden/verify.mjs push',
+    '',
+  ].join('\n'),
+];
 
 const MESSAGES = {
   en: {
@@ -203,7 +217,13 @@ export function installPlan(root, { cargoDeny = false, locale = 'en' } = {}) {
   model('config/disk.json', () => readFileSync(join(KIT, 'config', 'disk.json'), 'utf8'));
   if (content.files.includes('Cargo.toml') && cargoDeny) model('config/deny.toml', () => readFileSync(join(KIT, 'config', 'deny.toml'), 'utf8'));
   model('.githooks/pre-commit', () => readFileSync(join(KIT, '.githooks', 'pre-commit'), 'utf8'));
-  model('.githooks/pre-push', () => readFileSync(join(KIT, '.githooks', 'pre-push'), 'utf8'));
+  // A hook left exactly as an earlier kit wrote it is the kit's, not the project's: it follows the kit.
+  const pushHook = readText(join(root, '.githooks', 'pre-push'));
+  if (pushHook !== null && PREVIOUS_PUSH_HOOKS.includes(pushHook.replaceAll('\r\n', '\n'))) {
+    write.push({ path: '.githooks/pre-push', text: readFileSync(join(KIT, '.githooks', 'pre-push'), 'utf8') });
+  } else {
+    model('.githooks/pre-push', () => readFileSync(join(KIT, '.githooks', 'pre-push'), 'utf8'));
+  }
   model('AGENTS.md', () => readFileSync(join(KIT, localized('AGENTS.md')), 'utf8').replaceAll('{{project}}', basename(root)));
   model('CLAUDE.md', () => readFileSync(join(KIT, localized('CLAUDE.md')), 'utf8'));
 

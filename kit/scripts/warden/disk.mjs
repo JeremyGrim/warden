@@ -5,6 +5,7 @@
 //   node scripts/warden/disk.mjs report [--root <repo>]... [--build <folder>]...
 //   node scripts/warden/disk.mjs guard  [--warn]
 //   node scripts/warden/disk.mjs clean  [--deep] [--apply] [--root <repo>]... [--build <folder>]...
+//   node scripts/warden/disk.mjs clean  --own [--deep] [--apply]     the factory tree alone, from the factory tree
 //
 // `clean` is a dry run by default. Nothing follows a link, nothing leaves the root, and a worktree is never removed by
 // this tool.
@@ -324,9 +325,11 @@ export async function evaluate({ root, config, quick = false, env = process.env 
   for (const frozen of config.frozen_copies ?? []) {
     if (existsSync(join(root, frozen, 'target'))) alerts.push(t('disk.frozen_built', { dir: frozen }));
   }
-  // The factory tree is not an agent's: it never counts in the worktree budget, nor ages (21 November).
+  // The factory tree is not an agent's: it never counts in the worktree budget, nor ages (21 November). Nor does the
+  // release tree the factory keeps in its work folder.
   const factoryTree = stationSetting('factory', root);
-  const trees = worktrees(root).filter((tree) => !factoryTree || resolve(tree.path).toLowerCase() !== resolve(factoryTree).toLowerCase());
+  const kitTree = (path) => (factoryTree && resolve(path).toLowerCase() === resolve(factoryTree).toLowerCase()) || /[\\/]release-tree$/.test(path);
+  const trees = worktrees(root).filter((tree) => !kitTree(tree.path));
   if (trees.length > config.max_worktrees) alerts.push(t('disk.too_many_trees', { count: trees.length, max: config.max_worktrees }));
   for (const tree of trees) {
     if (tree.ageDays > config.max_worktree_age_days) alerts.push(t('disk.old_tree', { days: tree.ageDays, path: tree.path }));
@@ -478,9 +481,21 @@ async function guardCommand(argv, config) {
   if (!warnOnly) process.exitCode = 1;
 }
 
+// `--own`: the factory cleans its own tree, and only it, without asking anyone: what it removes regenerates, and the
+// tree is nobody else's. It refuses in any other tree.
 async function cleanCommand(argv, config) {
   const apply = argv.includes('--apply');
   const deep = argv.includes('--deep');
+  if (argv.includes('--own')) {
+    const factoryTree = stationSetting('factory', ROOT);
+    if (!factoryTree || resolve(factoryTree).toLowerCase() !== ROOT.toLowerCase()) {
+      console.error(t('disk.clean.not_own', { tree: factoryTree ?? '-' }));
+      process.exitCode = 1;
+      return;
+    }
+    argv = [];
+    config = { ...config, roots: [], builds: [] };
+  }
   const processes = apply ? stationProcesses() : [];
   // Each tree for itself: a build in another tree of the workstation does not hold this one back.
   const free = async (path) => {

@@ -74,6 +74,18 @@ test('a second install keeps the models and replaces the kit', (t) => {
   assert.equal(read('config/factory.json'), before);
 });
 
+test('a push hook left as an earlier kit wrote it follows the kit; one the project changed is kept', (t) => {
+  const { root, install, read } = project(t, NODE);
+  install();
+  const earlier = '#!/bin/sh\n# Git gives on standard input what it pushes: the push verification reads it.\n# The rules on the whole tree, the script guards, the disk (warning only), then the scope of the push.\nrefs=$(cat)\nnode scripts/warden/rules.mjs || exit 1\nnode --test "scripts/**/*.test.mjs" || exit 1\nnode scripts/warden/disk.mjs guard --warn\nprintf \'%s\\n\' "$refs" | node scripts/warden/verify.mjs push\n';
+  writeFileSync(join(root, '.githooks/pre-push'), earlier.replaceAll('\n', '\r\n'));
+  assert.equal(install().status, 0);
+  assert.match(read('.githooks/pre-push'), /node scripts\/warden\/guards\.mjs \|\| exit 1/, 'the hook of 0.3.0 is replaced');
+  writeFileSync(join(root, '.githooks/pre-push'), `${earlier}echo mine\n`);
+  assert.equal(install().status, 0);
+  assert.match(read('.githooks/pre-push'), /echo mine/, 'a hook the project changed is kept');
+});
+
 test('an edited kit script, or a file unknown to the kit, stops the install without writing anything', (t) => {
   const { root, install } = project(t, NODE);
   install();

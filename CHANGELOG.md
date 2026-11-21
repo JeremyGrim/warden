@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.4.0 - 2026-11-21
+
+Less coordination: an agent produces, submits, fixes and gets its work integrated without a person relaying anything, whenever the rules and the results say what comes next.
+
+### Added
+
+- **A class for every failure**: `violation`, `defect`, `conflict`, `transient`, `incomplete`, `baseline` (`outcome.mjs`). The class decides what follows.
+- **Workstation incidents** (os error 1455, LNK1102, a file held, a full disk, the network, a killed process) are replayed once, at push and in the train. An incident that survives its replay is judged on the main branch alone: the branch is refused only when the main branch passes. A project adds its own patterns with `verify.transient_patterns`.
+- **"Not run" is never "passed"**: a check that could not run (a tool absent, no advisory database) is said and recorded. `verify.when_missing`: `record` (default) lets the commit go and names what was not verified in its notes; `block` makes the push and the train wait. `verify.mjs files`, `advisories` and `all` exit with 3 in that case.
+- **Structured refusals**: `<session>.refusal.json` next to a deposit set aside: class, step, rule, paths, first error, log, refused commit, base, train, and `next` (`fix_and_redock`, `rebase_and_redock`). `status.mjs --json` gives it in `mine[].refusal`.
+- **Return on a new commit**: a refused deposit leaves again once it names another commit. No line to erase; the same commit docked again stays refused.
+- **Halts that blame nobody** (`_halt.json`, exit code 75), seen by every agent in its status:
+  - a red main branch halts the train until the main branch moves or the dock changes; the repair is a deposit like any other, and the train does not leave for nothing meanwhile;
+  - low memory halts it until the memory is back;
+  - an incident, or a blocked check that could not run, halts it for `train.retry_minutes`.
+- **`watch`** waits for what can lift a halt, and says it once past `train.halt_notice_minutes`, with exit code 75.
+- **A dead interrupted train is recovered** by the next train; `recover` stays for the hand.
+- **`guards.mjs`**: the project's script tests and the kit fingerprint run on every push and trial; the kit's own tests only when a kit file, Node, Git or the platform changed since they last passed in the clone. Measured on the trial: about 22 s to 0.1 s per push.
+- **`disk.mjs clean --own`**: the factory cleans what regenerates in its own tree without asking anyone. It refuses in any other tree.
+- **The local history** (`.work/warden-history.jsonl`, `history.keep_days`) and `status.mjs --history [--days N]`: integrations per day, delay from the dock to the main branch, refusals by class, halts, trials per train, verification cost per integration, costliest steps, pushes, guards spared, what was not run.
+- **The release** (`release.mjs build --commit <sha>`, skill `release`): a commit of the main branch built in `.work/release-tree`, never the train tree; `SHA256SUMS`, `release.json`; optional signature and its check, whose output is written nowhere. Publishing stays the person's decision.
+- **Apache License 2.0.**
+
+### Changed
+
+- When the advisories fail on the main branch alone, each trial checks them first instead of stopping the train: only a batch that repairs them goes up.
+- The rules model no longer carries the `docs` doctrine nor forbids `.claude`, `.codex` and `.agents`: they belonged to the repository Warden comes from. `docs/configuration.md` gives the `docs` section to add back.
+- A train set aside by the memory, a red main branch or an incident now exits with 75 instead of 1.
+
+### Migration
+
+- No configuration key is required. A project's `config/` is kept as is by the installer.
+- The pre-push hook: the installer replaces a hook left exactly as kits up to 0.3.0 wrote it. A hook the project changed is kept: replace its `node --test "scripts/**/*.test.mjs" || exit 1` line with `node scripts/warden/guards.mjs || exit 1`.
+- A deposit refused before 0.4.0 carries a `refused =` line and no refusal file: remove the line once, as before.
+- A factory that read exit code 1 as "the train did not leave" reads 75.
+
 ## 0.3.0 - 2026-11-21
 
 The factory, after a review by a factory that runs a real train.

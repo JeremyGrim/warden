@@ -1,8 +1,10 @@
 #!/usr/bin/env node
-// The end-to-end trial of the kit on blank projects: the kit installed, commits refused, pushes verified and refused, a
-// train of branches with one culprit, a red main branch that blames no branch, an interrupted train recovered, the
-// factory role and the status an agent reads when it joins. Nothing is
-// simulated: real repositories, real hooks, Cargo and pnpm. The projects live in a temporary folder removed at the end;
+// The end-to-end trial of the kit on blank projects: the kit installed, commits refused, pushes verified and refused,
+// the kit tests spared when the kit did not change, a train of branches with one culprit, its structured refusal and
+// its return on a new commit, an incident of the workstation replayed, a red main branch that blames no branch and
+// lifts with its repair, a check that could not run, a release, an interrupted train recovered, the history, the
+// factory role and the status an agent reads when it joins. Nothing is simulated: real repositories, real hooks,
+// Cargo and pnpm. The projects live in a temporary folder removed at the end;
 // the report stays.
 //
 //   node tools/e2e.mjs [--output <folder>] [--keep]
@@ -11,6 +13,7 @@
 // A broken step is reported as a check, and the trial goes on.
 
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -58,11 +61,25 @@ async function step(name, body) {
   }
 }
 
+// `null` removes the file.
 function write(root, files) {
   for (const [path, content] of Object.entries(files)) {
+    if (content === null) {
+      rmSync(join(root, path), { force: true });
+      continue;
+    }
     mkdirSync(dirname(join(root, path)), { recursive: true });
     writeFileSync(join(root, path), content);
   }
+}
+
+const readJson = (path) => (existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : null);
+const history = (root) => JSON.parse(node(root, 'scripts/warden/status.mjs', '--history', '--json').text);
+
+// The main branch as the remote holds it, in the tree, before a change pushed from there.
+function upToDate(root) {
+  git(root, 'fetch', '--quiet', 'origin');
+  git(root, 'reset', '--quiet', '--hard', 'origin/main');
 }
 
 // The slot is given back when the remote carries the commit: wait for it before the next push.
@@ -165,6 +182,7 @@ async function rustAndNode() {
     '.gitignore': 'target/\nnode_modules/\n',
   });
   const { root } = project;
+  let trees = {};
   await step('A. Rust and Node project: install', async () => {
     check('Cargo writes its lockfile', run('cargo', ['generate-lockfile', '--offline'], root).status === 0);
     check('pnpm writes its lockfile', run('pnpm', ['install'], root).status === 0 && existsSync(join(root, 'pnpm-lock.yaml')));
@@ -201,7 +219,14 @@ async function rustAndNode() {
     write(root, { 'crates/engine/src/lib.rs': RUST_LIB('\npub fn triple(x: i64) -> i64 {\n    x * 3\n}\n\n#[cfg(test)]\nmod triple_tests {\n    #[test]\n    fn triple() {\n        assert_eq!(super::triple(2), 6);\n    }\n}\n') });
     const r = await push(project, 'triple', ['Clippy, no warnings', 'Tests of engine', '2 Rust package(s)']);
     check('clippy on the touched package and its dependent, then its tests, and the push arrives', r.status === 0 && r.expected && r.arrived, r.log);
+    check('the kit tests passed at the kit push do not run again', r.text.includes('Kit guards: already passed'), r.log);
     check('the slot is given back', r.released);
+  });
+  await step('A. A kit file edited: its tests run, and the fingerprint refuses the push', async () => {
+    write(root, { 'scripts/warden/status.mjs': `${readFileSync(join(root, 'scripts/warden/status.mjs'), 'utf8')}// edited in the project\n` });
+    const r = await push(project, 'an edited kit', []);
+    check('the kit tests run again, and the push is refused by the fingerprint', r.status !== 0 && !r.text.includes('Kit guards: already passed') && r.text.includes('edited since version') && !r.arrived, r.log);
+    git(root, 'reset', '--quiet', '--hard', 'origin/main');
   });
   await step('A. A push refused by a Rust test, replayed once', async () => {
     write(root, { 'crates/engine/src/lib.rs': readFileSync(join(root, 'crates/engine/src/lib.rs'), 'utf8').replace('x * 3', 'x * 4') });
@@ -227,11 +252,30 @@ async function rustAndNode() {
     check('the build runs once per trial', r.text.includes('✔ Application'));
     check('the hook does not verify again what the train verified', r.text.includes('Already verified by the train'));
     check('the slot is given back', r.released);
+    const refusal = readJson(join(r.dock, 'agent-c.refusal.json'));
+    const culprit = git(r.trees['agent-c'], 'rev-parse', 'HEAD').text.trim();
+    check('the refusal is structured: class, step, first error, refused commit, next', refusal?.class === 'defect' && refusal.step === 'Verification of the changed files' && /gap/.test(refusal.first_error) && refusal.commit === culprit && refusal.next === 'fix_and_redock', JSON.stringify(refusal));
     const status = node(r.trees['agent-c'], 'scripts/warden/status.mjs', '--agent', 'agent-c', '--json');
     const s = JSON.parse(status.text);
-    check('an agent reads its role and its refused deposit in the status', s.role === 'agent' && / fails: .+\(log: /.test(s.mine[0]?.refused ?? ''), status.log);
+    check('an agent reads its role and its refused deposit in the status', s.role === 'agent' && / fails: .+\(log: /.test(s.mine[0]?.refused ?? '') && s.mine[0]?.refusal?.class === 'defect', status.log);
     const elsewhere = node(r.trees['agent-c'], 'scripts/warden/train.mjs', 'run', '--agent', 'agent-c');
     check('the train refuses to run outside the factory tree', elsewhere.status !== 0 && elsewhere.text.includes('is not the factory'), elsewhere.log);
+    trees = r.trees;
+  });
+  await step('A. A refused branch, fixed and docked again with a new commit, goes up', async () => {
+    const tree = trees['agent-c'];
+    write(tree, { 'web/gap.test.mjs': "import assert from 'node:assert/strict';\nimport { test } from 'node:test';\ntest('gap', () => assert.equal(2, 2));\n" });
+    git(tree, 'commit', '--quiet', '-am', 'gap fixed');
+    const fixed = git(tree, 'rev-parse', 'HEAD').text.trim();
+    const deposit = join(root, '.work', 'train-ready', 'agent-c.txt');
+    // Only the commit changes: the refused line stays where it is.
+    writeFileSync(deposit, readFileSync(deposit, 'utf8').replace(/^commit = \w+$/m, `commit = ${fixed}`));
+    const r = await train(project, []);
+    check('the deposit leaves again on its new commit alone, and goes up', r.status === 0 && r.up.join(',') === 'gap fixed,gap', `${r.up.join(', ')} — ${r.log}`);
+    check('its refusal leaves with it', !existsSync(join(r.dock, 'agent-c.refusal.json')) && !existsSync(deposit));
+    check('the slot is given back', r.released);
+    const h = history(root);
+    check('the history counts the integrations and the refusal by class', h.integrations === 3 && h.refusals.defect === 1 && h.trains === 2, JSON.stringify(h));
   });
 }
 
@@ -265,12 +309,33 @@ async function nodeOnly() {
     git(root, 'reset', '--quiet', '--hard', 'origin/main');
   });
   await step('B. A train of two branches', async () => {
+    // No advisory database on this workstation for this project: the npm advisories cannot run.
+    git(root, 'config', 'warden.ghsa', '');
     const r = await train(project, [
       { name: 'agent-d', message: 'square', files: { 'src/square.mjs': 'export const square = (a) => a * a;\n' } },
       { name: 'agent-e', message: 'cube', files: { 'src/cube.mjs': 'export const cube = (a) => a * a * a;\n' } },
     ]);
     check('the train takes both branches up', r.status === 0 && r.up.join(',') === 'cube,square', `${r.up.join(', ')} — ${r.log}`);
+    check('a check that could not run is said "not run", never "verified"', r.text.includes('not run, no clone of the advisory database') && r.text.includes('Not run on this train, so not verified: npm advisories'), r.log);
     check('the slot is given back', r.released);
+  });
+  await step('B. An incident of the workstation is replayed once, and the branch goes up', async () => {
+    upToDate(root);
+    // A build that fails once as a workstation out of memory does (os error 1455, 19 November), then passes.
+    write(root, {
+      'scripts/flaky-build.mjs': "import { existsSync, writeFileSync } from 'node:fs';\nif (!existsSync('.work/flaky-once')) {\n  writeFileSync('.work/flaky-once', '');\n  console.error('error: The paging file is too small for this operation to complete. (os error 1455)');\n  process.exit(1);\n}\nconsole.log('built');\n",
+      'scripts/package.mjs': "import { mkdirSync, writeFileSync } from 'node:fs';\nmkdirSync('out', { recursive: true });\nwriteFileSync('out/app-0.1.0.txt', 'the application\\n');\n",
+    });
+    const factory = JSON.parse(readFileSync(join(root, 'config/factory.json'), 'utf8'));
+    factory.train.build = { title: 'Flaky build', command: ['node', 'scripts/flaky-build.mjs'] };
+    factory.release = { build: ['node', 'scripts/package.mjs'], artifacts: ['out/app-*.txt'] };
+    writeFileSync(join(root, 'config/factory.json'), `${JSON.stringify(factory, null, 2)}\n`);
+    git(root, 'add', 'scripts/flaky-build.mjs', 'scripts/package.mjs', 'config/factory.json');
+    const setup = await push(project, 'a factory build and a release', []);
+    check('the factory build and the release are set', setup.status === 0 && setup.arrived, setup.log);
+    const r = await train(project, [{ name: 'agent-h', message: 'half', files: { 'src/half.mjs': 'export const half = (a) => a / 2;\n' } }]);
+    check('the incident is replayed once, and the branch goes up', r.status === 0 && r.up.join(',') === 'half' && r.text.includes('an incident of the workstation (error: The paging file') && r.text.includes('passed on the second try'), r.log);
+    check('nobody is refused for it', !existsSync(join(r.dock, 'agent-h.refusal.json')));
   });
   await step('B. A red main branch blames no branch', async () => {
     // A fixture: the main branch turns red outside the kit, from a clone with no hooks.
@@ -282,25 +347,63 @@ async function nodeOnly() {
     git(outside, 'commit', '--quiet', '-m', 'red');
     git(outside, 'push', '--quiet', 'origin', 'main');
     const r = await train(project, [{ name: 'agent-f', message: 'twice', files: { 'src/twice.mjs': 'export const twice = (a) => 2 * a;\n' } }]);
-    check('the train stops on a red main branch', r.status !== 0 && r.text.includes('is red on its own') && r.up.length === 0, r.log);
-    check('the sound branch is not refused, it waits', !/refused = /.test(readFileSync(join(r.dock, 'agent-f.txt'), 'utf8')));
+    check('the train halts on a red main branch (exit 75)', r.status === 75 && r.text.includes('is red on its own') && r.up.length === 0, r.log);
+    check('the sound branch is not refused, it waits', !/refused = /.test(readFileSync(join(r.dock, 'agent-f.txt'), 'utf8')) && !existsSync(join(r.dock, 'agent-f.refusal.json')));
+    const status = JSON.parse(node(r.trees['agent-f'], 'scripts/warden/status.mjs', '--agent', 'agent-f', '--json').text);
+    check('every agent sees the halt in its status', status.dock?.halt?.class === 'baseline' && /red/.test(status.dock.halt.first_error ?? ''), JSON.stringify(status.dock?.halt));
     check('the slot is given back', r.released);
-    git(outside, 'rm', '--quiet', 'src/red.test.mjs');
-    git(outside, 'commit', '--quiet', '-m', 'green again');
-    git(outside, 'push', '--quiet', 'origin', 'main');
+    const begin = Date.now();
+    const again = node(root, 'scripts/warden/train.mjs', 'run', '--agent', 'factory');
+    check('the next train does not leave for nothing while nothing changed', again.status === 75 && again.text.includes('is still red') && !again.text.includes('▶'), `${Date.now() - begin} ms — ${again.log}`);
+    await slotReleased(root);
+  });
+  await step('B. The repair is a deposit like any other: it goes up, and the waiting branch with it', async () => {
+    const r = await train(project, [{ name: 'agent-g', message: 'repair', files: { 'src/red.test.mjs': null } }]);
+    check('the repair and the waiting branch go up together', r.status === 0 && r.up.join(',') === 'repair,twice', `${r.up.join(', ')} — ${r.log}`);
+    check('the halt is lifted', !existsSync(join(r.dock, '_halt.json')));
+    check('the slot is given back', r.released);
+  });
+  await step('B. A release of a commit of the main branch', async () => {
+    upToDate(root);
+    const head = git(root, 'rev-parse', 'HEAD').text.trim();
+    const r = node(root, 'scripts/warden/release.mjs', 'build', '--commit', head, '--label', 'v0.1.0');
+    const folder = join(root, '.work', 'releases', 'v0.1.0');
+    const sums = existsSync(join(folder, 'SHA256SUMS')) ? readFileSync(join(folder, 'SHA256SUMS'), 'utf8') : '';
+    const digest = existsSync(join(folder, 'app-0.1.0.txt')) ? createHash('sha256').update(readFileSync(join(folder, 'app-0.1.0.txt'))).digest('hex') : 'none';
+    check('the release is built, its fingerprint right', r.status === 0 && sums === `${digest}  app-0.1.0.txt\n` && readJson(join(folder, 'release.json'))?.commit === head, r.log);
+    check('the train tree is left as it was', git(root, 'rev-parse', 'HEAD').text.trim() === head && git(root, 'status', '--porcelain', '--untracked-files=no').text.trim() === '' && !existsSync(join(root, 'out')));
+    const stray = git(root, 'commit-tree', 'HEAD^{tree}', '-p', 'HEAD', '-m', 'not on main').text.trim();
+    const refused = node(root, 'scripts/warden/release.mjs', 'build', '--commit', stray);
+    check('a commit that is not on the main branch is refused', refused.status !== 0 && refused.text.includes('only what went up through the train'), refused.log);
   });
   await step('B. An interrupted train is recovered', async () => {
     // What a killed train leaves: the tree on the train branch, a tracked file modified, its start record.
-    git(root, 'fetch', '--quiet', 'origin');
-    git(root, 'checkout', '--quiet', '-B', 'warden-train', 'origin/main');
-    write(root, { 'src/sum.mjs': '// half written\n' });
-    writeFileSync(join(root, '.git', 'warden-train-start'), 'main\n0\n');
-    const refused = node(root, 'scripts/warden/train.mjs', 'run', '--dry-run');
-    check('a train refuses to leave after an interrupted one', refused.status !== 0 && refused.text.includes('was interrupted'), refused.log);
+    const killed = () => {
+      git(root, 'fetch', '--quiet', 'origin');
+      git(root, 'checkout', '--quiet', '-B', 'warden-train', 'origin/main');
+      write(root, { 'src/sum.mjs': '// half written\n' });
+      writeFileSync(join(root, '.git', 'warden-train-start'), 'main\n0\n');
+    };
+    const clean = () => git(root, 'rev-parse', '--abbrev-ref', 'HEAD').text.trim() === 'main' && git(root, 'status', '--porcelain', '--untracked-files=no').text.trim() === '';
+    killed();
     const recovered = node(root, 'scripts/warden/train.mjs', 'recover');
-    check('recover puts the tree back where the train left from', recovered.status === 0 && git(root, 'rev-parse', '--abbrev-ref', 'HEAD').text.trim() === 'main' && git(root, 'status', '--porcelain', '--untracked-files=no').text.trim() === '', recovered.log);
+    check('recover puts the tree back where the train left from', recovered.status === 0 && clean(), recovered.log);
+    killed();
     const again = node(root, 'scripts/warden/train.mjs', 'run', '--dry-run');
-    check('the next train leaves', again.status === 0 && again.text.includes('Dry run'), again.log);
+    check('the next train recovers the tree by itself when the interrupted one is dead, and leaves', again.status === 0 && again.text.includes('its tree is recovered') && clean(), again.log);
+  });
+  await step('B. A check that cannot run makes the train wait when the project blocks it', async () => {
+    upToDate(root);
+    const factory = JSON.parse(readFileSync(join(root, 'config/factory.json'), 'utf8'));
+    factory.verify.when_missing = 'block';
+    writeFileSync(join(root, 'config/factory.json'), `${JSON.stringify(factory, null, 2)}\n`);
+    const setup = await push(project, 'block what was not verified', []);
+    check('the project blocks what was not verified', setup.status === 0 && setup.arrived, setup.log);
+    const r = await train(project, [{ name: 'agent-i', message: 'third', files: { 'src/third.mjs': 'export const third = (a) => a / 3;\n' } }]);
+    check('the train halts, nothing goes up unverified, nobody is refused', r.status === 75 && r.up.length === 0 && r.text.includes('could not run') && readJson(join(r.dock, '_halt.json'))?.class === 'incomplete' && !existsSync(join(r.dock, 'agent-i.refusal.json')), r.log);
+    check('the slot is given back', r.released);
+    const h = history(root);
+    check('the history counts the trains, the halts, the guards spared and what was not run', h.integrations === 5 && h.halts.baseline === 1 && h.halts.incomplete === 1 && h.guards.kit_cached > 0 && h.not_run['npm advisories, on the workstation'] > 0 && h.releases === 1, JSON.stringify(h));
   });
 }
 

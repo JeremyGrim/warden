@@ -1,8 +1,9 @@
 #!/bin/sh
 # Git gives on standard input what it pushes: the push verification reads it.
-# The rules on the whole tree, the script guards, the disk (warning only), then the scope of the push.
+# The rules on the whole tree, the script guards (the kit's own tests only when the kit, Node or Git changed), the disk
+# (warning only), then the scope of the push.
 refs=$(cat)
 node scripts/warden/rules.mjs || exit 1
-node --test "scripts/**/*.test.mjs" || exit 1
+node scripts/warden/guards.mjs || exit 1
 node scripts/warden/disk.mjs guard --warn
 printf '%s\n' "$refs" | node scripts/warden/verify.mjs push

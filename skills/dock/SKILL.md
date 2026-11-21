@@ -1,6 +1,6 @@
 ---
 name: dock
-description: Docks a ready branch so that the factory takes it to the main branch, in a project ruled by Warden. Use it when an agent branch is finished and verified on its scope, when the user says "dock", "queue it for the train" or "ready for merge", or when a deposit comes back with a refused line. French triggers include « dépose », « mets au train » and « au quai ».
+description: Docks a ready branch so that the factory takes it to the main branch, in a project ruled by Warden. Use it when an agent branch is finished and verified on its scope, when the user says "dock", "queue it for the train" or "ready for merge", or when a deposit comes back refused. French triggers include « dépose », « mets au train » and « au quai ».
 ---
 
 # Dock a branch
@@ -37,6 +37,11 @@ scenario = <journey scenario, when the change shows on screen>
 ## Afterwards
 
 - The factory takes four branches at most per train. When the branch goes up, the deposit moves to `taken/`, with the commit taken and where it went.
-- A branch set aside gets a `refused = <cause>` line: the step that failed, its first error, and the path of the train log. Fix it, rebase, check your scope again, then dock again with the new `commit`, **without the `refused` line**: that is what puts the branch back in the queue.
-- A branch that only conflicted with another branch of the batch waits for the next train, with no refused line.
+- A branch set aside gets `<session>.refusal.json` next to its deposit, and a `refused =` line. `status.mjs --agent <name> --json` gives it in `mine[].refusal`: the class, the step, the rule and paths, the first error, the log, and `next`:
+  - `fix_and_redock`: fix it, check your scope again, commit;
+  - `rebase_and_redock`: rebase on the main branch, check your scope again.
+
+  Then write the new commit in the deposit (`commit = <git rev-parse HEAD>`): that alone puts it back in the queue. The refused line can stay. The same commit docked again stays refused.
+- A branch that only conflicted with another branch of the batch waits for the next train, with no refusal.
+- A halted train (`dock.halt` in the status) refused nobody: your deposit waits. When the halt is a red main branch and the cause is yours to repair, the repair is a deposit like any other.
 - The factory never resolves a conflict in place of the author.

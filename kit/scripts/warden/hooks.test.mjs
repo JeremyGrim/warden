@@ -18,7 +18,7 @@ const PUSH_HOOK = [
   '#!/bin/sh',
   'refs=$(cat)',
   'node scripts/warden/rules.mjs || exit 1',
-  'node --test "scripts/**/*.test.mjs" || exit 1',
+  'node scripts/warden/guards.mjs || exit 1',
   'node scripts/warden/disk.mjs guard --warn',
   "printf '%s\\n' \"$refs\" | node scripts/warden/verify.mjs push",
   '',

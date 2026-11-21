@@ -26,7 +26,8 @@ The installer is `<this skill folder>/../../tools/install.mjs`. The skill folder
    - If `CLAUDE.md` carried rules, move them to `AGENTS.md`, then reduce it to the pointer.
 6. **Prove.**
    - `node scripts/warden/rules.mjs` until no finding is left.
-   - `node --test "scripts/**/*.test.mjs"`: the kit guards, including the hooks journey in a throwaway project.
+   - `node scripts/warden/guards.mjs --all`: the kit guards, including the hooks journey in a throwaway project. Later pushes skip the kit's own tests while the kit, Node and Git stay the same.
+   - An update from a kit before 0.4.0: the pre-push hook left as that kit wrote it is replaced; a hook the project changed is kept, and must call `node scripts/warden/guards.mjs` in place of `node --test "scripts/**/*.test.mjs"`.
    - If the person wants it: `node scripts/warden/verify.mjs all`, which runs every step once.
 7. **Commit** only the installed and adapted files: `scripts/warden/`, `.githooks/`, `config/`, `AGENTS.md`, `CLAUDE.md`, `.gitignore`, `.gitattributes`. The message says why. Push only with the person's agreement.
 
