@@ -48,6 +48,7 @@ export function collectStatus({ root = ROOT, agent = null } = {}) {
     main_tree: same(mainRoot, root),
     role: factoryTree ? (same(factoryTree, root) ? 'factory' : 'agent') : 'unset',
     factory_tree: factoryTree,
+    factory_fixes: factory.fixes,
     slot: slot ? { folder: slot, holder: holder(slot) } : null,
     dock: dock ? { folder: dock, ready: deposits.filter((d) => !d.refused).map(brief), refused: deposits.filter((d) => d.refused).map(brief) } : null,
     mine: mine.map(brief),

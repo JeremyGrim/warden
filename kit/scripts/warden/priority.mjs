@@ -4,21 +4,36 @@
 // what cannot be tied to a tree does not move: nothing is ever penalised in doubt. When the train ends, each process
 // it touched gets its priority back. Nothing is stopped or suspended.
 
+import { spawnSync } from 'node:child_process';
 import { constants, getPriority, setPriority } from 'node:os';
 
 import { BUILD_TOOLS, inTree } from './disk.mjs';
 
 const BUILD_BINARY = /[\\/]target[\\/].*[\\/](deps|debug|release|preview)[\\/][^\\/]+$/i;
+const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-// The project's trees: the main root and those carrying its name followed by a suffix (`project`, `project-e2`).
-export function projectTrees(mainRoot) {
-  const name = mainRoot.replaceAll('\\', '/').replace(/\/+$/, '').split('/').pop();
-  return new RegExp(`${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\\w-]*[\\\\/]`, 'i');
+// The project's trees, as a pattern over command lines: a line belongs to one of them when it names a path inside it.
+// The whole path is matched, never a bare folder name: a name convention missed agent trees named otherwise, and a
+// project `app` caught `webapp-x` (21 November).
+export function projectTrees(paths) {
+  const folders = [...new Set(paths.filter(Boolean).map((p) => p.replaceAll('\\', '/').replace(/\/+$/, '')))];
+  if (!folders.length) return /(?!)/;
+  const alternatives = folders.map((folder) => folder.split('/').map(escape).join('[\\\\/]+'));
+  return new RegExp(`(?:^|[\\s"'=@(\\\\])(?:${alternatives.join('|')})(?:[\\\\/"'\\s]|$)`, 'i');
+}
+
+// The trees of the workstation: every worktree of the clone, plus the folders declared to hold agent trees, a separate
+// clone for instance (`git config --add warden.agentTrees <folder>`).
+export function stationTrees(root) {
+  const read = (args) => spawnSync('git', args, { cwd: root, encoding: 'utf8', windowsHide: true }).stdout ?? '';
+  const worktrees = [...read(['worktree', 'list', '--porcelain']).matchAll(/^worktree (.+)$/gm)].map((m) => m[1].trim());
+  const declared = read(['config', '--get-all', 'warden.agentTrees']).split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  return [...worktrees, ...declared];
 }
 
 // Whose each build process is: 'train', 'other' or '' (unknown). By its own command line, otherwise by its descendants
 // (cargo does not name its tree, its rustc do), otherwise by its ancestors.
-export function classify(processes, root, others = projectTrees(root)) {
+export function classify(processes, root, others = projectTrees(stationTrees(root))) {
   const ofTrain = inTree(root);
   const kind = (text) => (!text ? '' : ofTrain(text) ? 'train' : others.test(text) ? 'other' : '');
   const byId = new Map(processes.map((p) => [p.pid, p]));

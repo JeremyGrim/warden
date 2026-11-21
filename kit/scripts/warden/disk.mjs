@@ -12,10 +12,11 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, readlinkSync } from 'node:fs';
 import { lstat, readdir, realpath, rename, rm, statfs } from 'node:fs/promises';
-import { homedir, tmpdir } from 'node:os';
+import { freemem, homedir, tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, parse, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { stationSetting } from './config.mjs';
 import { t } from './messages.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -158,6 +159,25 @@ export function worktrees(root) {
     const ageDays = Math.floor((Date.now() / 1000 - date) / 86400);
     return { ...tree, modified, unpushed, ageDays, removable: modified === 0 && unpushed === 0 };
   });
+}
+
+// The memory the workstation can still commit, in bytes: past it, a build fails (Windows: os error 1455, 19 November).
+// Windows gives it directly; Linux, the available memory plus the free swap; elsewhere, the free memory. Null when the
+// workstation does not say.
+export function freeMemory() {
+  if (process.platform === 'win32') {
+    const script = '(Get-CimInstance Win32_OperatingSystem).FreeVirtualMemory';
+    const out = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { windowsHide: true, encoding: 'utf8' });
+    const kib = Number(out.stdout?.trim());
+    return out.status === 0 && Number.isFinite(kib) && kib > 0 ? kib * 1024 : null;
+  }
+  try {
+    const info = readFileSync('/proc/meminfo', 'utf8');
+    const kib = (key) => Number(new RegExp(`^${key}:\\s+(\\d+)`, 'm').exec(info)?.[1] ?? 0);
+    return (kib('MemAvailable') + kib('SwapFree')) * 1024 || null;
+  } catch {
+    return freemem();
+  }
 }
 
 // The shared cache client (sccache) also holds the tree it compiles: a build served by the cache launches no rustc.
@@ -304,7 +324,9 @@ export async function evaluate({ root, config, quick = false, env = process.env 
   for (const frozen of config.frozen_copies ?? []) {
     if (existsSync(join(root, frozen, 'target'))) alerts.push(t('disk.frozen_built', { dir: frozen }));
   }
-  const trees = worktrees(root);
+  // The factory tree is not an agent's: it never counts in the worktree budget, nor ages (21 November).
+  const factoryTree = stationSetting('factory', root);
+  const trees = worktrees(root).filter((tree) => !factoryTree || resolve(tree.path).toLowerCase() !== resolve(factoryTree).toLowerCase());
   if (trees.length > config.max_worktrees) alerts.push(t('disk.too_many_trees', { count: trees.length, max: config.max_worktrees }));
   for (const tree of trees) {
     if (tree.ageDays > config.max_worktree_age_days) alerts.push(t('disk.old_tree', { days: tree.ageDays, path: tree.path }));

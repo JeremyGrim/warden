@@ -30,7 +30,19 @@ It counts as passed, and the output names it "to watch". A timed test on a satur
 
 ## A deposit keeps being set aside
 
-Read its `refused =` line. Fix it, rebase, check your scope, then remove the line. A branch whose tree no longer exists is refused with "branch not found".
+Read its `refused =` line: the step that failed, its first error, and the path of the train log. Fix it, rebase, check your scope, then dock again with the new `commit`, without the line. A branch whose tree no longer exists is taken from the local branch of the same name when the repository still has it; otherwise it is refused with "branch not found".
+
+## "a previous train was interrupted in this tree"
+
+A train was killed, ran out of memory or lost power. In the factory tree, run `node scripts/warden/train.mjs recover`, then `node scripts/warden/train.mjs run --dry-run`. `recover` refuses while the train process is still alive.
+
+## "The main branch is red on its own"
+
+Every branch of the batch failed, and so did the main branch alone, or the advisories failed on the main branch. No branch was refused. Read the cause and the log: a new advisory, a broken test on the main branch, a tool that changed on the workstation. Repair the main branch through a branch of its own; the next train takes the waiting deposits.
+
+## "Memory: … free to commit"
+
+The train did not leave. Something holds the workstation's memory: name it to the person. The factory never stops a process to free memory. The threshold is `train.min_free_memory_gib`.
 
 ## Messages in the wrong language
 
@@ -38,4 +50,8 @@ Check `WARDEN_LOCALE`, then `git config warden.locale`, then the system locale (
 
 ## `cargo metadata failed: boundaries not checked`
 
-The workspace does not resolve offline. Run `cargo metadata --offline` to see why; a missing or stale `Cargo.lock` is the usual cause.
+The workspace does not resolve offline. Run `cargo metadata --offline --locked` to see why.
+
+## "Cargo.lock is not up to date with the manifests"
+
+A manifest changed and the lockfile did not follow. The rules read the workspace with `--locked` and never rewrite the lockfile. Update it with Cargo in your tree, check it, and commit it with the manifest.

@@ -23,16 +23,20 @@ The deposit is a `<session>.txt` file, one key per line:
 ```
 tree     = <absolute path of the tree that carries the branch>
 branch   = <branch name>
+commit   = <the commit you checked: git rev-parse HEAD>
 tasks    = <task ids, comma separated>
 docked   = <dd/mm hh:mm>
 scenario = <journey scenario, when the change shows on screen>
 ```
 
+- `commit` is what the train takes, exactly. Commits you add after docking do not go up until you dock again.
+- `priority = <number>` is set only on the person's word: a deposit with a priority leaves first, the lowest number first.
 - Read the time on the workstation (`date`); never guess it.
 - Two pending deposits at most per agent.
 
 ## Afterwards
 
-- The factory takes four branches at most per train, in docking order. The deposit disappears when the branch goes up.
-- A branch set aside gets a `refused = <cause>` line. Fix it, rebase, check your scope again, then **remove the `refused` line**: that is what puts the branch back in the queue.
+- The factory takes four branches at most per train. When the branch goes up, the deposit moves to `taken/`, with the commit taken and where it went.
+- A branch set aside gets a `refused = <cause>` line: the step that failed, its first error, and the path of the train log. Fix it, rebase, check your scope again, then dock again with the new `commit`, **without the `refused` line**: that is what puts the branch back in the queue.
+- A branch that only conflicted with another branch of the batch waits for the next train, with no refused line.
 - The factory never resolves a conflict in place of the author.

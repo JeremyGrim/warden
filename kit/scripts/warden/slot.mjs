@@ -2,7 +2,7 @@
 // folder (`mkdir` fails when it exists), shared by every worktree of the workstation; `held-by.txt` says which tree
 // holds it, for which commit, since when. Its name and log come from config/factory.json.
 
-import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { t } from './messages.mjs';
@@ -49,15 +49,18 @@ function write(folder, { tree, commit, now }) {
 
 // Takes the slot, waiting for it to free up. A slot of this tree is taken back (an interrupted hook); a slot held for
 // more than 50 minutes is abandoned, taken back, and the takeover is written to the log when there is one
-// (`slot.log`, a file next to the slot).
+// (`slot.log`, a file next to the slot). An abandoned slot is first renamed aside, then taken by `mkdir` like a free
+// one: two hooks that see it abandoned at once cannot both believe they hold it (21 November).
 export async function take({ folder, tree, commit, now = () => Date.now(), sleep, maxWait = ABANDONED_MS, step = STEP_MS, say = () => {}, log = null }) {
   const start = now();
   let announced = false;
+  let tookOver = null;
   for (;;) {
     try {
       mkdirSync(folder);
       write(folder, { tree, commit, now: now() });
-      return { taken: true };
+      if (tookOver && log && existsSync(log)) appendFileSync(log, `\n- ${new Date(now()).toISOString()} — ${t('slot.log_takeover', { tree, holder: tookOver })}\n`);
+      return tookOver ? { taken: true, takenBack: tookOver } : { taken: true };
     } catch (error) {
       if (error.code !== 'EEXIST') return { taken: false, reason: t('slot.cannot_take', { code: error.code }) };
     }
@@ -67,9 +70,17 @@ export async function take({ folder, tree, commit, now = () => Date.now(), sleep
       return { taken: true, takenBack: holder };
     }
     if (now() - since(folder) > ABANDONED_MS) {
-      if (log && existsSync(log)) appendFileSync(log, `\n- ${new Date(now()).toISOString()} — ${t('slot.log_takeover', { tree, holder })}\n`);
-      write(folder, { tree, commit, now: now() });
-      return { taken: true, takenBack: holder };
+      const aside = `${folder}.abandoned-${now()}-${process.pid}`;
+      try {
+        renameSync(folder, aside);
+        rmSync(aside, { recursive: true, force: true });
+        tookOver = holder;
+        continue;
+      } catch {
+        // Another hook renamed it first, or a file in it is still held: look again.
+      }
+    } else {
+      tookOver = null;
     }
     if (now() - start >= maxWait) return { taken: false, reason: t('slot.held', { holder }) };
     if (!announced) {

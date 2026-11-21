@@ -31,6 +31,8 @@ It is a workstation setting, outside every repository. A repository never depend
 
 The incremental cache stays per tree: sccache does not cache incremental builds.
 
+A C or C++ dependency whose build carries its own compiler cache can fail under sccache: whisper.cpp with its `GGML_CCACHE` option gave `C1041` under MSVC. Turn that inner cache off for such a dependency, as its build documentation says.
+
 ## What the kit does with it
 
 - `disk.mjs` finds the cache in the workstation Cargo configuration (`SCCACHE_DIR`, `SCCACHE_CACHE_SIZE`), or in `config/disk.local.json` (`shared_caches`, with `path` and `max_gib`).
@@ -46,9 +48,11 @@ Two trees on the same `target`, through a link or through `CARGO_TARGET_DIR`, th
 ## The CPU budget
 
 - **Agents** share half the machine. A Cargo configuration in the folder that holds the agent trees, outside any repository, sets `[build] jobs = <half the cores>`.
-- **The train** takes every core for its builds (`CARGO_BUILD_JOBS`). While it runs, `priority.mjs`:
+- **The train** takes every core for its builds (`CARGO_BUILD_JOBS`), bounded by the memory free to commit: `train.memory_per_job_gib` per job, 2 GiB by default. A build that runs out of memory to commit fails (`os error 1455` on Windows). Below `train.min_free_memory_gib`, 8 GiB by default, the train does not leave and says so. It never stops a process to free memory.
+- **Incremental compilation is off in the train** (`CARGO_INCREMENTAL=0`). The train compiles once per trial, like a continuous integration: the incremental cache serves it nothing, grew to 50 GiB in one factory tree, and keeps sccache from caching the workspace crates.
+- **The priority**: while the train runs, `priority.mjs`:
   - raises the builds of its tree to high priority;
-  - lowers the builds of other trees of the project;
+  - lowers the builds of the other trees of the project: the worktrees of the clone, and the folders declared with `git config --add warden.agentTrees <folder>`;
   - leaves alone what it cannot tie to a tree.
 
-  When the train ends, every process gets its previous priority back. Nothing is stopped or suspended.
+  A tree is recognised by its whole path in a command line, never by a bare folder name. When the train ends, every process gets its previous priority back. Nothing is stopped or suspended.

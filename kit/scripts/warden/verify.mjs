@@ -2,8 +2,10 @@
 // The repository checks, on the workstation. Nothing goes online: no CI verifies the repository in place of the
 // workstation. What gets verified is in config/factory.json, section `verify`.
 //
-//   node scripts/warden/verify.mjs push   what a push touches; the pre-push hook runs it
-//   node scripts/warden/verify.mjs all    the whole repository
+//   node scripts/warden/verify.mjs push         what a push touches; the pre-push hook runs it
+//   node scripts/warden/verify.mjs all          the whole repository
+//   node scripts/warden/verify.mjs files        the files named on standard input, one per line (the train)
+//   node scripts/warden/verify.mjs advisories   the dependency advisories alone, whatever changed (the train, on main)
 //
 // A failing step stops the verification, and the exit code says so.
 
@@ -328,6 +330,20 @@ export function verifyFiles(files, factory = readFactory()) {
   return play(steps);
 }
 
+// The advisories alone, whatever changed: a new advisory turns the main branch red without any branch, and the train
+// runs this on the main branch before each batch (19 November).
+function advisoriesCommand() {
+  const { verify } = readFactory();
+  const steps = [];
+  if (hasRust(verify) && verify.rust.deny) steps.push(dependencyStep(verify.rust));
+  if (verify.npm_advisories) steps.push(...npmSteps(verify.npm_advisories));
+  if (!steps.length) {
+    console.log(t('verify.no_advisories'));
+    return true;
+  }
+  return play(steps);
+}
+
 function allCommand() {
   const { verify } = readFactory();
   const steps = [
@@ -367,6 +383,8 @@ async function main(argv) {
     return true;
   }
   if (command === 'all') return allCommand();
+  if (command === 'files') return verifyFiles(readFileSync(0, 'utf8').split(/\r?\n/).map((f) => f.trim()).filter(Boolean));
+  if (command === 'advisories') return advisoriesCommand();
   console.error(t('verify.usage'));
   return false;
 }

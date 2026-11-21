@@ -8,7 +8,7 @@ import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { checkFiles, compile, countLines, nodeBoundaries, readVersion, rustBoundaries } from './rules.mjs';
+import { checkFiles, compile, countLines, nodeBoundaries, readVersion, rustBoundaries, staleLock } from './rules.mjs';
 
 const KIT = dirname(fileURLToPath(import.meta.url));
 
@@ -281,4 +281,9 @@ test('the commit hook blocks a finding and lets the rest through', () => {
   } finally {
     rmSync(repo, { recursive: true, force: true });
   }
+});
+
+test('a lockfile behind the manifests is named, never rewritten', () => {
+  assert.ok(staleLock('error: the lock file /p/Cargo.lock needs to be updated but --locked was passed to prevent this\nIf you want to try to generate the lock file without accessing the network, remove the --locked flag and use --offline instead.'));
+  assert.ok(!staleLock('error: failed to get `serde` as a dependency of package `engine`'), 'a missing dependency offline is another failure');
 });

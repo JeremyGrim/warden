@@ -14,6 +14,9 @@
     "dock": "train-ready",
     "max_batch": 4,
     "install": null,
-    "build": null
-  }
+    "build": null,
+    "min_free_memory_gib": 8,
+    "memory_per_job_gib": 2
+  },
+  "fixes": ["version", "lock", "generated"]
 }

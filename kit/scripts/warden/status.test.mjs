@@ -46,10 +46,10 @@ test('the status reads the tree, the dock and the role instead of guessing them'
 
 test('the text says each point on one line, and warns when the hooks are off', () => {
   const lines = formatStatus({
-    kit: { name: 'warden', version: '0.2.0' }, hooks_active: false, rules_source: 'AGENTS.md', role: 'agent', branch: 'feature', main_branch: 'main', clean: true,
+    kit: { name: 'warden', version: '0.3.0' }, hooks_active: false, rules_source: 'AGENTS.md', role: 'agent', branch: 'feature', main_branch: 'main', clean: true,
     slot: { folder: '/s', holder: null }, dock: { ready: [], refused: [] }, mine: [{ name: 'me.txt', branch: 'feature', refused: 'conflict' }], task_tool: null, shared_build_cache: [],
   });
-  assert.match(lines.join('\n'), /Kit: warden 0\.2\.0/);
+  assert.match(lines.join('\n'), /Kit: warden 0.3.0/);
   assert.match(lines.join('\n'), /Role: agent/);
   assert.match(lines.join('\n'), /me\.txt: feature — refused: conflict/);
   assert.match(lines.at(-1), /git config core\.hooksPath \.githooks/);

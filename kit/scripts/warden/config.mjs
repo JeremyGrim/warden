@@ -17,7 +17,9 @@ export const FACTORY_DEFAULTS = {
   work_dir: '.work',
   slot: { name: 'push-slot', log: null },
   verify: { rust: null, npm_advisories: null, steps: [], all: [] },
-  train: { branch: 'warden-train', dock: 'train-ready', max_batch: 4, install: null, build: null },
+  train: { branch: 'warden-train', dock: 'train-ready', max_batch: 4, install: null, build: null, min_free_memory_gib: 8, memory_per_job_gib: 2 },
+  // What the factory may commit itself, on its own branch taken with `--with`: everything else goes back to the author.
+  fixes: ['version', 'lock', 'generated'],
 };
 
 export function readJson(path, fallback = null) {

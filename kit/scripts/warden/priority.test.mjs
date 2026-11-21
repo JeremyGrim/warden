@@ -6,7 +6,7 @@ import { adjust, classify, projectTrees, restorePriorities } from './priority.mj
 
 const TRAIN = process.platform === 'win32' ? 'C:\\repos\\project-factory' : '/repos/project-factory';
 const AGENT = process.platform === 'win32' ? 'E:\\trees\\project-e3' : '/trees/project-e3';
-const OTHERS = projectTrees(process.platform === 'win32' ? 'C:\\repos\\project' : '/repos/project');
+const OTHERS = projectTrees([process.platform === 'win32' ? 'C:\\repos\\project' : '/repos/project', AGENT]);
 const p = (pid, parent, name, line, executable = '') => ({ pid, parent, name, line, executable });
 
 // A workstation: the train compiles (cargo, then rustc naming the tree), an agent too, an agent test runs from its
@@ -32,6 +32,15 @@ test('each build ties to its tree, by its line, its children or its parents', ()
   assert.equal(k.get(13), 'other', 'a test launched from an agent target');
   assert.equal(k.get(20), '', 'unknown: it does not move');
   assert.ok(!k.has(30) && !k.has(1) && !k.has(10), 'what does not compile is not classified');
+});
+
+test('a tree is recognised by its whole path, never by a bare name', () => {
+  const trees = projectTrees(['C:/repos/app', 'E:\\agents\\worker-7']);
+  assert.ok(trees.test('rustc --out-dir C:\\repos\\app\\target\\debug'), 'the main root, either separator');
+  assert.ok(trees.test('cargo --manifest-path=E:/agents/worker-7/Cargo.toml'), 'an agent tree named otherwise');
+  assert.ok(!trees.test('rustc --out-dir C:\\repos\\webapp-x\\target'), 'a neighbouring name is not caught');
+  assert.ok(!trees.test('rustc --out-dir C:\\repos\\app-old\\target'), 'nor a longer one');
+  assert.ok(!projectTrees([]).test('anything'), 'no tree known: nothing is caught');
 });
 
 test('the train goes up, the agent down, the unknown stays; when the train ends, each gets its priority back', () => {

@@ -2,11 +2,15 @@ import './git-env.mjs';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { chooseBatch, MAX_BATCH, noteCommand, notYetTaken, readDeposit, readyDeposits, sortOut } from './train.mjs';
+import { chooseBatch, firstError, jobsFor, MAX_BATCH, noteCommand, notYetTaken, readDeposit, readyDeposits, sortOut } from './train.mjs';
+
+const NOW = new Date(2026, 10, 12, 9, 0).getTime();
 
 test('a deposit reads as the rule writes it, alignment and note included', () => {
-  const text = 'tree    = E:\\trees\\project-e5\nbranch  = task-module\ntasks   = T36, T37\ncargo   = yes\ndocked  = 11/11 20:57\nnote    = 8 commits rebased\n';
-  const d = readDeposit('agent-11.txt', text, 0, 2026);
+  const text = 'tree    = E:\\trees\\project-e5\nbranch  = task-module\ncommit  = 1fec8b2\ntasks   = T36, T37\ncargo   = yes\ndocked  = 11/11 20:57\nnote    = 8 commits rebased\n';
+  const d = readDeposit('agent-11.txt', text, 0, NOW);
+  assert.equal(d.commit, '1fec8b2', 'the docked commit');
+  assert.equal(d.priority, null);
   assert.equal(d.tree, 'E:\\trees\\project-e5');
   assert.equal(d.branch, 'task-module');
   assert.deepEqual(d.tasks, ['T36', 'T37']);
@@ -36,9 +40,48 @@ test('a branch stacked on another deposit only brings its own commits', () => {
 });
 
 test('the train leaves in docking order, without the refused or incomplete ones', () => {
-  const d = (name, docked, extra = '') => readDeposit(name, `tree = a\nbranch = ${name}\ndocked = ${docked}\n${extra}`, 0, 2026);
+  const d = (name, docked, extra = '') => readDeposit(name, `tree = a\nbranch = ${name}\ndocked = ${docked}\n${extra}`, 0, NOW);
   const ready = readyDeposits([d('c', '11/11 20:58'), d('a', '11/11 20:38'), d('b', '11/11 20:44', 'refused = conflict'), readDeposit('empty', 'branch = z\n')]);
   assert.deepEqual(ready.map((x) => x.name), ['a', 'c']);
+});
+
+test('a priority set by the person leaves first, the lowest number first; the others keep arrival order', () => {
+  const d = (name, docked, extra = '') => readDeposit(name, `tree = a\nbranch = ${name}\ndocked = ${docked}\n${extra}`, 0, NOW);
+  const ready = readyDeposits([d('a', '11/11 20:38'), d('b', '11/11 20:44', 'priority = 2'), d('c', '11/11 20:58', 'priority = 1'), d('d', '11/11 19:00')]);
+  assert.deepEqual(ready.map((x) => x.name), ['c', 'b', 'd', 'a']);
+});
+
+test('a deposit of 31 December read on 1 January stays first: the docking year is the closest one', () => {
+  const newYear = new Date(2027, 0, 1, 0, 30).getTime();
+  const late = readDeposit('late', 'tree = a\nbranch = late\ndocked = 31/12 23:50\n', 0, newYear);
+  const early = readDeposit('early', 'tree = a\nbranch = early\ndocked = 01/01 00:10\n', 0, newYear);
+  assert.equal(late.moment, new Date(2026, 11, 31, 23, 50).getTime());
+  assert.deepEqual(readyDeposits([early, late]).map((x) => x.name), ['late', 'early']);
+});
+
+test('the factory branch is always taken, and never counts in the batch', () => {
+  const own = { name: 'release', own: true };
+  const { batch } = chooseBatch(['a', 'b', 'c', 'd', 'e', own], () => null);
+  assert.deepEqual(batch, ['a', 'b', 'c', 'd', own], 'a full dock does not leave the release version waiting');
+});
+
+test('a failure names its step and its first error', () => {
+  const rust = 'Compiling engine\nerror[E0425]: cannot find value `x` in this scope\n --> src/lib.rs:3:5\nerror: could not compile `engine`\n✖ Clippy, no warnings: failed (12 s).\n';
+  assert.equal(firstError(rust), '✖ Clippy, no warnings: failed (12 s). — error[E0425]: cannot find value `x` in this scope');
+  assert.equal(firstError('Rules: 1 finding(s)\n  [lines] crates/big.rs: 701 lines for 700 at most\n'), '[lines] crates/big.rs: 701 lines for 700 at most');
+  assert.equal(firstError('running 2 tests\ntest a::b ... FAILED\n'), 'test a::b ... FAILED');
+  const node = '▶ Project tests\n✖ gap (1.1ms)\n✔ sum (0.5ms)\n✖ failing tests:\n✖ gap (1.1ms)\n[ELIFECYCLE] Test failed. See above for more details.\n✖ Project tests: failed (1 s).\n';
+  assert.equal(firstError(node), '✖ Project tests: failed (1 s). — ✖ gap (1.1ms)', 'the failed test, not the package manager line');
+  assert.equal(firstError('something\nlast words\n'), 'last words', 'nothing recognised: the last line');
+  assert.ok(firstError(`error: ${'x'.repeat(400)}`).length <= 200);
+});
+
+test('the build jobs are bounded by the memory free to commit', () => {
+  const gib = 1024 ** 3;
+  assert.equal(jobsFor(64 * gib, 16, 2), 16, 'room for every core');
+  assert.equal(jobsFor(10 * gib, 16, 2), 5);
+  assert.equal(jobsFor(1 * gib, 16, 2), 1, 'never less than one');
+  assert.equal(jobsFor(null, 16, 2), 16, 'unknown memory: every core');
 });
 
 test('everything passes: one verification', async () => {

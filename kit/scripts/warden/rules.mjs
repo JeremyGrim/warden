@@ -39,20 +39,30 @@ const readBlob = (reference) => (path) => {
   return out.status === 0 ? out.stdout : null;
 };
 
+// Cargo says the lockfile is behind the manifests, and that `--locked` kept it from rewriting it.
+export const staleLock = (stderr) => /needs to be updated but --locked was passed/.test(stderr);
+
 function boundaries(all, rules, read) {
   const findings = [];
   const rust = rules.boundaries?.rust;
   if (rust && all.includes('Cargo.toml') && all.some((p) => p !== 'Cargo.toml' && posix.basename(p) === 'Cargo.toml')) {
-    let readOk = false;
-    for (const options of [['--locked', '--offline'], ['--no-deps', '--offline']]) {
+    // Always `--locked`: a rule check that rewrote Cargo.lock in silence made a train refuse a sound branch
+    // (20 November). A lockfile behind the manifests is a named finding, never a rewrite.
+    let found = null;
+    for (const options of [['--locked', '--offline'], ['--no-deps', '--locked', '--offline']]) {
       const out = spawnSync('cargo', ['metadata', '--format-version', '1', ...options], { cwd: ROOT, maxBuffer: 1 << 30, windowsHide: true });
       if (out.status === 0) {
         findings.push(...rustBoundaries(JSON.parse(out.stdout.toString('utf8')), rust));
-        readOk = true;
+        found = 'read';
+        break;
+      }
+      if (staleLock(out.stderr.toString('utf8'))) {
+        found = 'stale';
         break;
       }
     }
-    if (!readOk) findings.push({ rule: 'boundary', path: 'Cargo.toml', message: t('boundary.metadata_failed') });
+    if (found === 'stale') findings.push({ rule: 'boundary', path: 'Cargo.lock', message: t('boundary.lock_stale') });
+    else if (!found) findings.push({ rule: 'boundary', path: 'Cargo.toml', message: t('boundary.metadata_failed') });
   }
   const node = rules.boundaries?.node;
   if (node) {

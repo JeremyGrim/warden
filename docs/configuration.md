@@ -54,9 +54,14 @@ The `secrets` model admits one fictitious user name in test paths: `person`, its
 | `verify.npm_advisories` | `lockfile`: the pnpm lockfile compared to a local clone of the GitHub Advisory Database |
 | `verify.steps` | `{ title, when, command, unchanged }`: `when` lists path patterns, `command` is an array, `unchanged` lists paths the command must not change (generated files) |
 | `verify.all` | Extra steps for `verify.mjs all` |
-| `train.branch`, `train.dock`, `train.max_batch` | The train branch, the dock folder name, the batch size |
+| `train.branch`, `train.dock`, `train.max_batch` | The train branch, the dock folder name, the batch size (4) |
 | `train.install` | `{ lockfile, command }`: installed again when the lockfile changes |
 | `train.build` | `{ title, command }`: the build run once per trial |
+| `train.min_free_memory_gib` | Below this memory free to commit, the train does not leave (8) |
+| `train.memory_per_job_gib` | The memory a build job may take: the train's jobs are bounded by it (2) |
+| `fixes` | What the factory may commit itself, on its own branch: `version`, `lock`, `generated`, `lint`. Default: the first three |
+
+Every default comes from one workstation: size them for yours.
 
 ## `config/disk.json`
 
@@ -65,7 +70,7 @@ The `secrets` model admits one fictitious user name in test paths: `person`, its
 | `min_free_gib` | 60 |
 | `max_build_gib` | 40 |
 | `max_incremental_gib` | 6 |
-| `max_worktrees` | 2 |
+| `max_worktrees` | 2 (the factory tree never counts) |
 | `max_worktree_age_days` | 7 |
 | `frozen_copies` | folders that are read and never compiled (the origin of a migration) |
 
@@ -76,6 +81,7 @@ The `secrets` model admits one fictitious user name in test paths: `person`, its
 | Setting | Meaning |
 |---|---|
 | `git config warden.factory <path>` | The factory tree. The train runs only there |
+| `git config --add warden.agentTrees <folder>` | A folder that holds agent trees outside the clone's worktrees: their builds go to low priority during a train |
 | `git config warden.slot <folder>` | The slot folder, for a clone that is not a worktree of the main root |
 | `git config warden.tasks <tool>` | The task tool, following the five-gesture contract |
 | `git config warden.ghsa <clone>` | The clone of the advisory database (`WARDEN_GHSA_DATABASE` comes first) |

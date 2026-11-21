@@ -85,6 +85,21 @@ test('a slot of this tree is taken back, an abandoned one too, and the takeover 
   assert.match(readFileSync(log, 'utf8'), /push slot abandoned, taken back by the hook of E:\/e3/);
 });
 
+test('a slot taken back from an abandoned holder has one holder, and the next hook waits', async (t) => {
+  const work = tray(t);
+  const folder = join(work, 'push-slot');
+  const c = clock();
+  await take({ folder, tree: 'E:/e1', commit: 'old', ...c });
+  c.advance(ABANDONED_MS + 1000);
+  const [first, second] = await Promise.all([
+    take({ folder, tree: 'E:/e2', commit: 'b', ...c, maxWait: 60 * 1000 }),
+    take({ folder, tree: 'E:/e3', commit: 'c', ...c, maxWait: 60 * 1000 }),
+  ]);
+  assert.equal([first, second].filter((r) => r.taken).length, 1, 'one holder');
+  const holderTree = /^tree: (.+)$/m.exec(readFileSync(join(folder, 'held-by.txt'), 'utf8'))[1];
+  assert.equal(holderTree, first.taken ? 'E:/e2' : 'E:/e3', 'the one that believes it holds it is the one written');
+});
+
 test('a slot made by hand, with no held-by.txt, counts from the folder date', async (t) => {
   const folder = join(tray(t), 'push-slot');
   mkdirSync(folder);
