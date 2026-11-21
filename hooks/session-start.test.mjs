@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { compare, notices } from './session-start.mjs';
+import { compare, notices, pluginRecord } from './session-start.mjs';
 
 test('with no kit in the project, the hook says nothing', () => {
   assert.deepEqual(notices({ kit: null, plugin: { version: '0.2.0' }, hooks: '', source: 'startup' }), []);
@@ -24,4 +24,11 @@ test('versions compare number by number', () => {
   assert.equal(compare('0.10.0', '0.9.0'), 1);
   assert.equal(compare('1.0.0', '1.0.0'), 0);
   assert.equal(compare('1.0', '1.0.1'), -1);
+});
+
+test('the plugin version is recorded when it changes, and keeps the moment it was first seen', () => {
+  assert.deepEqual(pluginRecord(null, '0.4.4', 'now'), { version: '0.4.4', since: 'now' });
+  assert.equal(pluginRecord({ version: '0.4.4', since: 'before' }, '0.4.4', 'now'), null, 'nothing to write');
+  assert.deepEqual(pluginRecord({ version: '0.4.3', since: 'before' }, '0.4.4', 'now'), { version: '0.4.4', since: 'now' });
+  assert.equal(pluginRecord(null, undefined), null, 'a plugin with no version writes nothing');
 });

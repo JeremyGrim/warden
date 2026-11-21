@@ -1,9 +1,11 @@
-// A project's configuration (§7). The project files are read only, key by key: a change of them goes through a
-// deposit, like any change. The workstation settings are written at once, in this clone, by their own gesture;
-// `core.hooksPath` is only ever turned on.
+// A project's configuration (§7). The project files are shown key by key; a change of them goes through a deposit,
+// like any change: the editor checks the text with the project's own kit (POST /api/check, nothing written), then
+// `change.mjs deposit` commits it under the hooks, on a branch of its own, and docks it for the train. Nothing is
+// pushed. The workstation settings are written at once, in this clone, by their own gesture; `core.hooksPath` is only
+// ever turned on.
 
-import { t } from './ui-api.mjs';
-import { badge, box, boxRow, btn, caption, gap, h, icon, link, mono } from './ui-dom.mjs';
+import { errorText, post, t } from './ui-api.mjs';
+import { absent, badge, box, boxRow, btn, caption, field, fmtClock, h, icon, link, mono } from './ui-dom.mjs';
 import { subbar } from './ui-views.mjs';
 
 // The keys ui.mjs writes (SETTINGS there), with what each means.
@@ -45,11 +47,11 @@ const read = (obj, path) => path.split('.').reduce((v, k) => (v && typeof v === 
 const show = (value) => (typeof value === 'string' ? value : JSON.stringify(value));
 const defaultText = (value) => (value?.startsWith('ui.') ? t(value) : value);
 
-function row(key, value, meaning, { dflt = null, missing = null, control = null, action = null, gapId = null }) {
+function row(key, value, meaning, { dflt = null, missing = null, control = null, action = null }) {
   return h('div', { class: 'cfrow' },
     h('span', { class: 'cfk mono wrap' }, key),
     control ?? (value === undefined ? h('span', { class: 'cfv quiet' }, missing ?? t('ui.cfg.absent')) : h('span', { class: 'cfv mono wrap' }, show(value))),
-    h('span', { class: 'cfs' }, meaning, dflt !== null ? ` · ${t('ui.cfg.default', { value: defaultText(dflt) })}` : '', gapId ? gap(gapId) : null),
+    h('span', { class: 'cfs' }, meaning, dflt !== null ? ` · ${t('ui.cfg.default', { value: defaultText(dflt) })}` : ''),
     h('span', { class: 'lacts' }, action));
 }
 
@@ -154,6 +156,116 @@ function stationView(ctx, d) {
   return table.childElementCount ? table : h('p', { class: 'empty' }, t('ui.cfg.no_match'));
 }
 
+// The editor of a project file, in the drawer. What the person writes stays in this page until a deposit of it ends
+// with code 0. "Deposit" is allowed only once the text differs from the file and its last check found no error.
+const drafts = new Map();
+const TEXT_MAX = 256 * 1024;
+const trimEnd = (text) => String(text).replace(/\s+$/, '');
+const depositWords = (file, message) => `node scripts/warden/change.mjs deposit ${file}${message ? ` --message ${JSON.stringify(message)}` : ''} < ${t('ui.cfg.page_text')}`;
+
+function checkNode(draft, checking) {
+  const c = draft.check;
+  if (checking) return h('div', { class: 'exit' }, badge('run', t('ui.cfg.check_title')));
+  if (!c) return h('p', { class: 'hint' }, t('ui.cfg.not_checked_yet'));
+  const stale = c.text !== draft.text ? h('p', { class: 'hint' }, t('ui.cfg.check_stale', { at: fmtClock(c.at) })) : null;
+  if (c.error) return h('div', { class: 'dsec' }, stale, h('div', { class: 'exit' }, badge('unk', t('ui.run.no_answer')), h('span', null, c.error)));
+  if (!c.answer || c.answer.unavailable) {
+    return h('div', { class: 'dsec' }, stale, h('div', { class: 'exit' }, badge('unk', t('ui.cfg.check_unavailable')), h('span', null, t('ui.cfg.check_unavailable_text'))));
+  }
+  const problems = [...(c.answer.problems ?? [])].sort((a, b) => (a.level === 'error' ? 0 : 1) - (b.level === 'error' ? 0 : 1));
+  const errors = problems.filter((p) => p.level === 'error').length;
+  const at = t('ui.cfg.check_at', { at: fmtClock(c.at) });
+  const head = errors
+    ? h('div', { class: 'exit' }, badge('halt', t('ui.cfg.check_errors', { n: errors })), h('span', null, at))
+    : h('div', { class: 'exit' }, badge('ok', t('ui.cfg.check_valid')), h('span', null, problems.length ? t('ui.cfg.check_warnings', { n: problems.length }) : '', problems.length ? ' · ' : '', at));
+  return h('div', { class: 'dsec' }, stale, head, problems.length ? h('div', { class: 'probs' }, problems.map((p) => h('div', { class: 'prob' },
+    badge(p.level === 'error' ? 'halt' : 'todo', p.level === 'error' ? t('ui.cfg.problem_error') : t('ui.cfg.problem_warning')),
+    h('span', { class: 'mono wrap' }, p.path ?? '/'),
+    h('span', { class: 'wrap' }, p.expected ?? '')))) : null);
+}
+
+export function editConfig(ctx, d, name) {
+  const file = `config/${name}.json`;
+  const key = `${d.path}|${file}`;
+  const given = d.config?.[name];
+  // The file as it is written (0.4.4 servers give its text), else as the kit read it, indented by two spaces; absent, it
+  // starts empty.
+  const original = typeof d.config_text?.[name] === 'string' ? d.config_text[name].replace(/\s+$/, '') : JSON.stringify(given ?? {}, null, 2);
+  const draft = drafts.get(key) ?? { text: original, message: '', check: null };
+  let checking = false;
+  const results = h('div', { class: 'dsec' });
+  const command = h('pre', { class: 'pre' });
+  const text = h('textarea', {
+    class: 'fta code', spellcheck: 'false', autocomplete: 'off', wrap: 'off', 'aria-label': t('ui.cfg.text', { file }),
+    on: { input: (e) => { draft.text = e.target.value; update(); } },
+  });
+  text.value = draft.text;
+  const message = h('input', {
+    class: 'fin', type: 'text', maxlength: '200', autocomplete: 'off', placeholder: `Config: ${file}`, 'aria-label': t('ui.cfg.message'), value: draft.message,
+    on: { input: (e) => { draft.message = e.target.value; update(); } },
+  });
+  const reset = btn(t('ui.cfg.reset'), () => {
+    draft.text = original;
+    text.value = original;
+    update();
+  }, { kind: 'g' });
+  const verify = btn(t('ui.cfg.check'), () => check());
+  const deposit = btn(t('ui.cfg.deposit'), () => send(), { kind: 'p' });
+  const update = () => {
+    drafts.set(key, draft);
+    const changed = trimEnd(draft.text) !== trimEnd(original);
+    const fresh = Boolean(draft.check && draft.check.text === draft.text && draft.check.answer && !draft.check.answer.unavailable);
+    reset.disabled = !changed;
+    verify.disabled = checking || draft.text.length > TEXT_MAX;
+    deposit.disabled = checking || !changed || !fresh || draft.check.answer.errors !== 0;
+    // Why it waits, when the check panel does not say it: an unchanged text.
+    deposit.title = changed ? '' : t('ui.cfg.deposit_unchanged');
+    command.textContent = depositWords(file, draft.message.trim());
+    results.replaceChildren(checkNode(draft, checking));
+  };
+  const check = async () => {
+    const sent = draft.text;
+    checking = true;
+    update();
+    try {
+      draft.check = { text: sent, answer: await post('/api/check', { path: d.path }, { file, content: sent }), error: null, at: new Date() };
+    } catch (error) {
+      draft.check = { text: sent, answer: null, error: errorText(error), at: new Date() };
+    }
+    checking = false;
+    update();
+  };
+  const send = () => {
+    const words = draft.message.trim();
+    ctx.gesture({
+      project: d, gesture: 'config.deposit', args: { file, content: draft.text, message: words }, title: t('ui.cfg.deposit_title', { file }),
+      command: depositWords(file, words), cwd: d.path,
+      done: (result) => {
+        if (result?.code === 0) drafts.delete(key);
+      },
+    });
+  };
+  const body = [
+    h('div', { class: 'dnote' }, t('ui.cfg.deposit_says', { name, file })),
+    field(t('ui.cfg.text', { file }), text, given === null || given === undefined ? h('span', { class: 'hint' }, t('ui.cfg.file_missing')) : null),
+    field(t('ui.cfg.message'), message, h('span', { class: 'hint' }, t('ui.cfg.message_hint', { file }))),
+    field(t('ui.cfg.check_title'), results),
+    field(t('ui.drawer.command'), command, h('span', { class: 'where' }, t('ui.drawer.in'), ' ', h('span', { class: 'mono' }, d.path))),
+    h('p', { class: 'hint' }, t('ui.cfg.deposit_refusals')),
+  ];
+  update();
+  ctx.form({ title: t('ui.cfg.edit_title', { file }), body, foot: [reset, verify, deposit], focus: text, wide: true });
+}
+
+// What the person can do to a project file from here: open it in the editor, or why not (and then no button).
+function byDeposit(ctx, d, name) {
+  const badgeNode = badge('wait', t('ui.cfg.by_deposit'));
+  if (d.absent?.config_change) return box(boxRow(badgeNode, h('span', { class: 'grow' }, t('ui.cfg.no_editor_older')), absent(d.kit.version)));
+  if (d.config?.[name]?.unreadable) return box(boxRow(badgeNode, h('span', { class: 'grow' }, t('ui.cfg.no_editor_unreadable'))));
+  return box(boxRow(badgeNode, h('span', { class: 'grow' }, t('ui.cfg.by_deposit_text')),
+    btn(t('ui.cfg.edit'), () => editConfig(ctx, d, name), { kind: 'p', small: true, fk: `cfg:edit:${name}` })));
+}
+
 export function renderConfig(ctx, d) {
   const sub = ctx.state.sub.config ?? 0;
   const names = ['factory', 'rules', 'disk'];
@@ -162,7 +274,7 @@ export function renderConfig(ctx, d) {
     current: sub, onPick: (i) => ctx.setSub('config', i),
     source: sub < 3 ? t('ui.cfg.source_project', { file: `config/${names[sub]}.json` }) : t('ui.cfg.source_station'),
   })];
-  if (sub < 3) out.push(box(boxRow(badge('wait', t('ui.cfg.by_deposit')), h('span', { class: 'grow' }, t('ui.cfg.by_deposit_text'), ' ', gap('M16')))));
+  if (sub < 3) out.push(byDeposit(ctx, d, names[sub]));
   else out.push(caption(null, t('ui.cfg.station_text')));
   out.push(h('div', { class: 'ltools' }, h('label', { class: 'q' }, icon('search', 14), h('input', {
     type: 'search', placeholder: t('ui.cfg.search'), 'aria-label': t('ui.cfg.search'), value: ctx.ui.cfq ?? '', autocomplete: 'off', 'data-fk': 'cfg:q',

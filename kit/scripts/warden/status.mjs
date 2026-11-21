@@ -13,6 +13,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { readFactory, ROOT, stationSetting } from './config.mjs';
+import { readDecisions } from './decision.mjs';
 import { loadConfig } from './disk.mjs';
 import { dockFolder, isRefused, readDock, readHalt, readTrain } from './dock.mjs';
 import { historyPath, readHistory, summarize } from './history.mjs';
@@ -55,10 +56,14 @@ export function collectStatus({ root = ROOT, agent = null } = {}) {
     // A halted train is every agent's business: a red main branch is repaired by a deposit like any other.
     dock: dock ? { folder: dock, ready: deposits.filter((d) => !isRefused(d)).map(brief), refused: deposits.filter(isRefused).map(brief), halt: readHalt(dock), train: readTrain(dock) } : null,
     mine: mine.map(brief),
+    // The decisions the factory raised: open ones wait for the person, answered ones for the factory (decision.mjs).
+    decisions: slot ? countDecisions(readDecisions(dirname(slot))) : null,
     task_tool: stationSetting('tasks', root) ? 'set' : null,
     shared_build_cache: existsSync(join(root, 'Cargo.toml')) ? loadConfig(root).shared_caches.map((c) => c.path) : null,
   };
 }
+
+const countDecisions = (list) => ({ open: list.filter((d) => d.state === 'open').length, answered: list.filter((d) => d.state === 'answered').length });
 
 // `refusal`: the structured refusal while it holds; `refused`: its one-line summary.
 const brief = (d) => {
@@ -78,6 +83,7 @@ export function formatStatus(s) {
     t('status.dock', { ready: s.dock?.ready.length ?? 0, refused: s.dock?.refused.length ?? 0 }),
   ];
   if (s.dock?.halt) lines.push(`! ${t('status.halt', { cls: s.dock.halt.class, since: s.dock.halt.at, cause: s.dock.halt.cause })}`);
+  if (s.decisions && (s.decisions.open || s.decisions.answered)) lines.push(t('status.decisions', s.decisions));
   for (const d of s.mine) {
     const why = d.refusal ? t('status.refusal', { cls: d.refusal.class, next: d.refusal.next, cause: d.refused ?? d.refusal.first_error }) : d.refused ? t('status.refused', { cause: d.refused }) : '';
     lines.push(`  ${d.name}: ${d.branch}${why ? ` — ${why}` : ''}`);

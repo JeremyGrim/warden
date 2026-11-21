@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { absentData, casesFor, compareVersions, gestureCommand, parseDeposit, projectEntries, startServer, workFile } from './ui.mjs';
+import { absentData, casesFor, compareVersions, gestureCommand, newestSeen, parseDeposit, projectEntries, startServer, workFile } from './ui.mjs';
 
 const project = (fields = {}) => ({
   ok: true, path: '/p/alpha', kit: { version: '0.4.3' }, releases: [], state: { cases: {}, published: {} },
@@ -19,9 +19,10 @@ test('versions compare part by part, and the kit version says what a project can
   assert.equal(compareVersions('0.4.10', '0.4.9'), 1);
   assert.equal(compareVersions('0.3.0', '0.4.0'), -1);
   assert.equal(compareVersions('0.4.3', '0.4.3'), 0);
-  assert.deepEqual(absentData('0.3.0'), { history: true, refusals: true, releases: true, version: true, disk: true, live_train: true });
+  assert.deepEqual(absentData('0.3.0'), { history: true, refusals: true, releases: true, version: true, disk: true, live_train: true, decisions: true, clean_tree: true, config_change: true });
   assert.equal(absentData('0.4.1').version, false);
   assert.equal(absentData('0.4.2').disk, true);
+  assert.deepEqual([absentData('0.4.3').decisions, absentData('0.4.4').decisions, absentData('0.4.4').config_change], [true, false, false]);
 });
 
 test('the projects are those listed and the one launched from, once each', () => {
@@ -51,9 +52,23 @@ test('only what is the person\'s waits for them', () => {
   const disk = { trees: [{ path: '/t/a', branch: 'a', ageDays: 9, removable: true }, { path: '/t/b', removable: false }, { path: '/t/c', absent: true, removable: true }], alerts: ['too many trees'] };
   assert.deepEqual(casesFor(project(), { disk }).map((c) => c.kind), ['tree_removable', 'tree_absent', 'disk_alert']);
   assert.deepEqual(casesFor(project({ kit: { version: '0.4.1' } }), { newestKit: '0.4.3' }).map((c) => [c.kind, c.vars.newest]), [['kit_behind', '0.4.3']]);
+  const decisions = [
+    { id: '20261121-160509-abcd', at: 'd', title: 'Keep?', question: 'q', options: ['Keep', 'Drop'], state: 'open' },
+    { id: '20261121-150000-abcd', at: 'd', title: 'Done', question: 'q', options: [], state: 'answered' },
+  ];
+  assert.deepEqual(casesFor(project({ decisions })).map((c) => [c.kind, c.vars.title, c.vars.options.length]), [['decision', 'Keep?', 2]], 'an answered decision waits for the factory, not the person');
   const off = casesFor(project({ status: { hooks_active: false, dock: { halt: null } }, state: { cases: { hooks: { state: 'done' } }, published: {} } }));
   assert.deepEqual(off.map((c) => [c.kind, c.state]), [['hooks_off', 'done']], 'marked seen, it stays while its cause holds');
   assert.deepEqual(casesFor({ ok: false }), []);
+});
+
+test('the newest version seen on the workstation is a kit\'s or the plugin\'s, the plugin first at equal versions', () => {
+  const kits = [{ kit: { version: '0.4.3' } }, { kit: { version: '0.4.1' }, plugin: { version: '0.4.4' } }, { kit: null }];
+  assert.deepEqual(newestSeen(kits), { version: '0.4.4', from: 'plugin' });
+  assert.deepEqual(newestSeen([{ kit: { version: '0.4.4' } }, { kit: { version: '0.4.2' }, plugin: { version: '0.4.4' } }]), { version: '0.4.4', from: 'plugin' });
+  assert.equal(newestSeen([]), null);
+  const behind = casesFor(project({ kit: { version: '0.4.3' } }), { newestKit: '0.4.4', newestFrom: 'plugin' });
+  assert.deepEqual(behind.map((c) => c.vars.from), ['plugin']);
 });
 
 test('only the gestures that bypass nothing run, each in its own tree', () => {
@@ -70,6 +85,17 @@ test('only the gestures that bypass nothing run, each in its own tree', () => {
   assert.throws(() => gestureCommand('setting.set', { key: 'warden.locale', value: 'de' }, p));
   for (const gesture of ['train.run', 'train.recover', 'version.bump', 'disk.clean', 'git.push']) assert.throws(() => gestureCommand(gesture, {}, p), new RegExp(gesture.replace('.', '\\.')));
   assert.throws(() => gestureCommand('train.dry_run', {}, project()), /warden\.factory/, 'no factory, no factory gesture');
+  const tree = gestureCommand('disk.clean_tree', { tree: '/t/agent-a', apply: true }, p);
+  assert.deepEqual([tree.args.slice(1), tree.cwd], [['clean', '--tree', '/t/agent-a', '--apply'], '/p/alpha'], 'from the project root, the kit checks the tree');
+  for (const bad of ['relative/tree', '/t/a\nb', null]) assert.throws(() => gestureCommand('disk.clean_tree', { tree: bad }, p));
+  const answer = gestureCommand('decision.answer', { id: '20261121-160509-abcd', choice: 2, note: 'because' }, p);
+  assert.deepEqual(answer.args.slice(1), ['answer', '20261121-160509-abcd', '--choice', '2', '--note', 'because']);
+  for (const bad of [{ id: '../x', choice: 1 }, { id: '20261121-160509-abcd', choice: 9 }, { id: '20261121-160509-abcd', note: 'n'.repeat(4001) }]) assert.throws(() => gestureCommand('decision.answer', bad, p));
+  const deposit = gestureCommand('config.deposit', { file: 'config/disk.json', content: '{}', message: 'Disk: more trees' }, p);
+  assert.deepEqual([deposit.args.slice(1), deposit.input, deposit.cwd], [['deposit', 'config/disk.json', '--message', 'Disk: more trees'], '{}', '/p/alpha']);
+  for (const bad of [{ file: 'config/disk.local.json', content: '{}' }, { file: '../config/disk.json', content: '{}' }, { file: 'config/disk.json', content: 1 }, { file: 'config/disk.json', content: '{}', message: 'a\nb' }]) {
+    assert.throws(() => gestureCommand('config.deposit', bad, p), /config/);
+  }
 });
 
 test('a file is read inside the work folder only', (t) => {
@@ -128,6 +154,10 @@ test('the server answers its own page only, with its token, on its own address',
   assert.equal(form.status, 415, 'what a form of another site could send');
   const relative = await call(port, '/api/projects', { method: 'POST', headers: json, body: '{"action":"add","target":"some/where"}' });
   assert.equal(relative.status, 400, 'an absolute path only');
+  const deposit = await call(port, `/api/run?path=${encodeURIComponent(root)}`, { method: 'POST', headers: json, body: '{"gesture":"config.deposit","args":{"file":"config/disk.local.json","content":"{}"}}' });
+  assert.equal(deposit.status, 400, 'a workstation file is never deposited');
+  const check = await call(port, `/api/check?path=${encodeURIComponent(root)}`, { method: 'POST', headers: json, body: '{"file":"config/disk.json","content":"{}"}' });
+  assert.deepEqual(JSON.parse(check.text), { unavailable: true }, 'a project with no kit checks nothing');
 });
 
 test('the workstation list gains and loses a project as it is written, whatever its slashes', async (t) => {

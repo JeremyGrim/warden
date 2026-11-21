@@ -263,7 +263,7 @@ test('the commit hook blocks a finding and lets the rest through', () => {
   try {
     mkdirSync(join(repo, 'scripts', 'warden'), { recursive: true });
     mkdirSync(join(repo, 'config'));
-    for (const f of ['rules.mjs', 'checks.mjs', 'boundaries.mjs', 'config.mjs', 'messages.mjs', 'messages.en.mjs', 'messages.fr.mjs', 'messages-ui.en.mjs', 'messages-ui.fr.mjs']) cpSync(join(KIT, f), join(repo, 'scripts', 'warden', f));
+    for (const f of ['rules.mjs', 'checks.mjs', 'boundaries.mjs', 'config.mjs', 'messages.mjs', 'messages.en.mjs', 'messages.fr.mjs', 'messages-ui.en.mjs', 'messages-ui.fr.mjs', 'messages-ui-config.en.mjs', 'messages-ui-config.fr.mjs']) cpSync(join(KIT, f), join(repo, 'scripts', 'warden', f));
     writeFileSync(join(repo, 'config', 'rules.json'), JSON.stringify(DATA));
     for (const [path, content] of Object.entries(BASE)) writeFileSync(join(repo, path), content);
 

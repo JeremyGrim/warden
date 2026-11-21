@@ -1,6 +1,6 @@
 # Warden
 
-[![Version](https://img.shields.io/badge/version-0.4.3-c71244)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.4.4-c71244)](CHANGELOG.md)
 [![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-d97757)](https://code.claude.com/docs/en/plugins/overview)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22-339933.svg?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Dependencies](https://img.shields.io/badge/dependencies-none-2ea44f)](docs/architecture.md)
@@ -120,7 +120,7 @@ See [Merge train](docs/merge-train.md).
 
 ## The interface
 
-The person follows every project of the workstation from one local page: what each train did, what is under way, and only what waits for them. It runs the gestures that bypass nothing: a dry run, the factory's own cleanup, a release, turning the hooks on, the workstation settings.
+The person follows every project of the workstation from one local page: what each train did, what is under way, and only what waits for them, the decisions the factory raised included. It runs the gestures that bypass nothing: a dry run, the cleanup of one tree, a release, turning the hooks on, the workstation settings, an answer to the factory, and a change of the project configuration, checked and deposited for the train like any change.
 
 ```bash
 node scripts/warden/ui.mjs

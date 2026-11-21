@@ -93,15 +93,17 @@ export function baselineHolds(detail) {
   return !pushed && !taken;
 }
 
-// The cases (F12): their nature, their words, and where they lead.
+// The cases (F12): their nature, their words, and where they lead. The decisions are the last sub-view of the train.
+export const DECISIONS_SUB = 4;
 export const NATURES = () => [
   { id: 'halt', label: t('ui.nature.halt'), tone: 'halt' },
+  { id: 'decision', label: t('ui.nature.decision'), tone: 'todo' },
   { id: 'release', label: t('ui.nature.release'), tone: 'todo' },
   { id: 'disk', label: t('ui.nature.disk'), tone: 'todo' },
   { id: 'kit', label: t('ui.nature.kit'), tone: 'todo' },
 ];
 
-export const natureOf = (kind) => ({ halt_memory: 'halt', halt_incomplete: 'halt', release: 'release', tree_removable: 'disk', tree_absent: 'disk', disk_alert: 'disk', kit_behind: 'kit', hooks_off: 'kit' })[kind] ?? 'kit';
+export const natureOf = (kind) => ({ halt_memory: 'halt', halt_incomplete: 'halt', release: 'release', tree_removable: 'disk', tree_absent: 'disk', disk_alert: 'disk', kit_behind: 'kit', hooks_off: 'kit', decision: 'decision' })[kind] ?? 'kit';
 
 export function caseWords(c) {
   const v = c.vars ?? {};
@@ -112,7 +114,16 @@ export function caseWords(c) {
     case 'tree_removable': return { title: t('ui.case.tree_removable', { branch: v.branch ?? '?', days: v.days ?? '?' }), detail: v.path, why: t('ui.why.tree'), open: t('ui.open.disk'), to: ['health', 0] };
     case 'tree_absent': return { title: t('ui.case.tree_absent', { branch: v.branch ?? '?' }), detail: v.path, why: t('ui.why.tree'), open: t('ui.open.disk'), to: ['health', 0] };
     case 'disk_alert': return { title: t('ui.case.disk_alert'), detail: v.alert, why: t('ui.why.disk'), open: t('ui.open.disk'), to: ['health', 0] };
-    case 'kit_behind': return { title: t('ui.case.kit_behind', { kit: v.kit ?? '?', newest: v.newest ?? '?' }), detail: null, why: t('ui.why.kit'), open: t('ui.open.kit'), to: ['health', 2], gapId: 'M14' };
+    // Behind the plugin, or behind the kit of another project of the workstation: the case says which.
+    case 'kit_behind': return {
+      title: v.from === 'plugin' ? t('ui.case.kit_behind_plugin', { kit: v.kit ?? '?', newest: v.newest ?? '?' }) : t('ui.case.kit_behind', { kit: v.kit ?? '?', newest: v.newest ?? '?' }),
+      detail: null, why: t('ui.why.kit'), open: t('ui.open.kit'), to: ['health', 2],
+    };
+    // A product choice the factory may not take: the question whole, its options, who raised it.
+    case 'decision': return {
+      title: v.title ?? v.id ?? '?', detail: v.question ?? null, options: Array.isArray(v.options) ? v.options : [],
+      why: t('ui.why.decision', { by: v.by ?? '?' }), open: t('ui.open.decisions'), to: ['train', DECISIONS_SUB],
+    };
     case 'hooks_off': return { title: t('ui.case.hooks_off'), detail: null, why: t('ui.why.hooks'), open: t('ui.open.settings'), to: ['config', 3] };
     default: return { title: c.kind, detail: null, why: '', open: t('ui.open.project'), to: ['train', 0] };
   }

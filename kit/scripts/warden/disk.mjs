@@ -7,6 +7,7 @@
 //   node scripts/warden/disk.mjs guard  [--warn]
 //   node scripts/warden/disk.mjs clean  [--deep] [--apply] [--root <repo>]... [--build <folder>]...
 //   node scripts/warden/disk.mjs clean  --own [--deep] [--apply]     the factory tree alone, from the factory tree
+//   node scripts/warden/disk.mjs clean  --tree <path> [--deep] [--apply]   one other tree of the clone alone
 //
 // `clean` is a dry run by default. Nothing follows a link, nothing leaves the root, and a worktree is never removed by
 // this tool.
@@ -329,7 +330,7 @@ export async function evaluate({ root, config, quick = false, env = process.env 
   // The factory tree is not an agent's: it never counts in the worktree budget, nor ages (21 November). Nor does the
   // release and version trees the factory keeps in its work folder.
   const factoryTree = stationSetting('factory', root);
-  const kitTree = (path) => (factoryTree && resolve(path).toLowerCase() === resolve(factoryTree).toLowerCase()) || /[\\/](release|version)-tree$/.test(path);
+  const kitTree = (path) => (factoryTree && resolve(path).toLowerCase() === resolve(factoryTree).toLowerCase()) || /[\\/](release|version|change)-tree$/.test(path);
   const trees = worktrees(root).filter((tree) => !kitTree(tree.path));
   if (trees.length > config.max_worktrees) alerts.push(t('disk.too_many_trees', { count: trees.length, max: config.max_worktrees }));
   for (const tree of trees) {
@@ -495,11 +496,31 @@ async function guardCommand(argv, config) {
   if (!warnOnly) process.exitCode = 1;
 }
 
+const samePath = (a, b) => (process.platform === 'win32' ? resolve(a).toLowerCase() === resolve(b).toLowerCase() : resolve(a) === resolve(b));
+
+// The trees `--tree` may name: the trees of this clone (its worktrees, the main one included), and the trees held in a
+// folder declared with `git config --add warden.agentTrees <folder>`. Never any other folder of the workstation.
+export function cloneTree(root, tree) {
+  if (!tree || !isAbsolute(tree) || !existsSync(tree)) return false;
+  const listed = (git(['worktree', 'list', '--porcelain'], root) ?? '').split(/\r?\n/).filter((l) => l.startsWith('worktree ')).map((l) => l.slice(9));
+  if (listed.some((path) => samePath(path, tree))) return true;
+  const folders = (git(['config', '--get-all', 'warden.agentTrees'], root) ?? '').split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  const top = git(['rev-parse', '--show-toplevel'], tree)?.trim();
+  if (!top || !samePath(top, tree)) return false;
+  return folders.some((folder) => {
+    const rel = relative(resolve(root, folder), tree);
+    return Boolean(rel) && !rel.startsWith('..') && !isAbsolute(rel);
+  });
+}
+
 // `--own`: the factory cleans its own tree, and only it, without asking anyone: what it removes regenerates, and the
 // tree is nobody else's. It refuses in any other tree.
+// `--tree <path>`: one tree of the clone, on the person's gesture, and nothing else: neither the tree it runs from, nor
+// the `roots` and `builds` of the workstation. The factory tree is cleaned by the factory, with `--own`.
 async function cleanCommand(argv, config) {
   const apply = argv.includes('--apply');
   const deep = argv.includes('--deep');
+  let roots = null;
   if (argv.includes('--own')) {
     const factoryTree = stationSetting('factory', ROOT);
     if (!factoryTree || resolve(factoryTree).toLowerCase() !== ROOT.toLowerCase()) {
@@ -507,6 +528,24 @@ async function cleanCommand(argv, config) {
       process.exitCode = 1;
       return;
     }
+    roots = [ROOT];
+  } else if (argv.includes('--tree')) {
+    const named = argv[argv.indexOf('--tree') + 1];
+    const tree = named && isAbsolute(named) ? resolve(named) : null;
+    const factoryTree = stationSetting('factory', ROOT);
+    if (!tree || !cloneTree(ROOT, tree)) {
+      console.error(t('disk.clean.not_a_tree', { tree: named ?? '-' }));
+      process.exitCode = 1;
+      return;
+    }
+    if (factoryTree && samePath(factoryTree, tree)) {
+      console.error(t('disk.clean.factory_own', { tree }));
+      process.exitCode = 1;
+      return;
+    }
+    roots = [tree];
+  }
+  if (roots) {
     argv = [];
     config = { ...config, roots: [], builds: [] };
   }
@@ -529,7 +568,7 @@ async function cleanCommand(argv, config) {
     total += bytes;
     console.log(`${(removed ? t('disk.clean.removed') : t('disk.clean.to_remove')).padEnd(10)} ${readable(bytes).padStart(10)}  ${target}`);
   };
-  for (const root of requestedRoots(argv, config)) {
+  for (const root of roots ?? requestedRoots(argv, config)) {
     if (await free(root)) (await clean({ root, deep, apply })).forEach(show);
   }
   for (const build of requestedBuilds(argv, config)) {

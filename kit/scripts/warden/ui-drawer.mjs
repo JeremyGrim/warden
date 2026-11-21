@@ -1,5 +1,6 @@
 // The command drawer: every gesture shows its command, the tree it runs in, its output and its exit code, then the
-// view is read again. A non-zero code is never dressed as a success. Files open here too, read only.
+// view is read again. A non-zero code is never dressed as a success. Files open here too, read only, and the forms
+// whose sending is a gesture (an answer to a decision, a configuration change).
 
 import { errorText, get, post, t } from './ui-api.mjs';
 import { badge, btn, fmtClock, h, icon } from './ui-dom.mjs';
@@ -62,15 +63,20 @@ function paint() {
   const view = current;
   if (!view) return;
   $('drawer-title').replaceChildren(view.title, view.gapNode ?? '');
+  $('drawer').classList.toggle('wide', Boolean(view.wide));
   const body = [];
   const foot = [btn(t('ui.drawer.close'), closeDrawer)];
-  if (view.kind === 'file') {
+  if (view.kind === 'form') {
+    body.push(...view.body);
+    foot.push(...view.foot);
+  } else if (view.kind === 'file') {
     body.push(h('div', { class: 'dsec' }, label(t('ui.col.file')), pre(view.file)));
     body.push(h('div', { class: 'dsec' }, label(t('ui.drawer.content')),
       view.phase === 'sent' ? h('div', { class: 'pre wait' }, h('div', { class: 'sk' }), h('div', { class: 'sk' })) : null,
       view.error ? h('div', { class: 'exit' }, badge('unk', t('ui.drawer.unreadable')), h('span', null, errorText(view.error))) : null,
       view.answer ? pre(view.answer.content || t('ui.drawer.empty_file')) : null,
       view.answer?.truncated ? h('p', { class: 'muted' }, t('ui.drawer.truncated')) : null));
+    if (view.back) foot.push(btn(t('ui.drawer.back'), view.back, { kind: 'p' }));
   } else {
     const shown = view.result?.command ?? view.command;
     const where = view.kind === 'station' ? t('ui.drawer.where_station') : view.result?.cwd ?? view.cwd;
@@ -136,6 +142,7 @@ async function settle(id, spec, result, error) {
     Object.assign(current, { phase: 'reported', result, error });
     paint();
   }
+  spec.done?.(result, error);
   await hooks.reread();
   if (current && seq === id) {
     Object.assign(current, { phase: 'reread', readAt: new Date() });
@@ -145,10 +152,21 @@ async function settle(id, spec, result, error) {
   }
 }
 
-// A file of the work folder (GET /api/file), read only. JSON is shown indented.
-export async function openFile({ project, file, title = null }) {
+// A form, built once by its caller: its fields keep what the person types, and the drawer never draws them again.
+// What it sends is a gesture, which then takes the drawer over like any other.
+export function openForm({ title, body, foot, focus = null, wide = false }) {
+  seq += 1;
+  current = { kind: 'form', title, body, foot, wide };
+  openDrawer();
+  paint();
+  focus?.focus({ preventScroll: true });
+}
+
+// A file of the work folder (GET /api/file), read only. JSON is shown indented. `back` returns to the form it was
+// opened from.
+export async function openFile({ project, file, title = null, back = null }) {
   const id = ++seq;
-  current = { kind: 'file', phase: 'sent', title: title ?? t('ui.drawer.read_only'), file };
+  current = { kind: 'file', phase: 'sent', title: title ?? t('ui.drawer.read_only'), file, back };
   openDrawer();
   paint();
   let answer = null;

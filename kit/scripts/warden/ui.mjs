@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // The interface: a local page for the person alone, served by the kit. It shows every project of the workstation (the
 // global `git config warden.projects`, and the project it is launched from), each read by its own kit, and runs only the
-// gestures that bypass nothing: a dry run, the factory's own cleanup, reading the version, a release, turning the hooks
-// on, the workstation settings, and the marks the person keeps on the workstation (docs/interface.md).
+// gestures that bypass nothing: a dry run, the cleanup of one tree, reading the version, a release, turning the hooks on,
+// the workstation settings, answering a decision of the factory, depositing a configuration change, and the marks the
+// person keeps on the workstation (docs/interface.md).
 //
 //   node scripts/warden/ui.mjs [--port <n>] [--no-open]
 //
@@ -17,13 +18,18 @@ import { basename, dirname, extname, isAbsolute, join, relative, resolve } from 
 import { fileURLToPath } from 'node:url';
 
 import { ROOT } from './config.mjs';
+import { readDecisions } from './decision.mjs';
 import { manifestGaps, MANIFEST } from './kit.mjs';
 import { CATALOGS, resolveLocale, t } from './messages.mjs';
+import { CONFIG_FILES } from './schema.mjs';
 
 const KIT_DIR = dirname(fileURLToPath(import.meta.url));
 const OUTPUT_MAX = 256 * 1024;
 const FILE_MAX = 512 * 1024;
 const STATE = 'warden-ui.json';
+// The plugin version the plugin's session hook leaves in the clone's Git folder (hooks/session-start.mjs).
+const PLUGIN_RECORD = 'warden-plugin.json';
+const CONTENT_MAX = 256 * 1024;
 // The page's own files, served from the kit folder: never the server, never a guard.
 const STATIC = /^ui\.(html|css)$|^ui-[a-z]+\.mjs$/;
 const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8' };
@@ -66,19 +72,21 @@ export function compareVersions(a, b) {
   return 0;
 }
 
-// A script of a project's own kit, run in that project; its output as JSON, or null.
-function kitJson(root, script, args) {
+// A script of a project's own kit, run in that project; its output as JSON, or null. `input` goes to its standard input;
+// `anyCode` keeps the output of a script that says a refusal by its exit code (change.mjs check).
+function kitJson(root, script, args, { input = null, anyCode = false } = {}) {
   const file = join(root, 'scripts', 'warden', script);
   if (!existsSync(file)) return Promise.resolve(null);
   return new Promise((done) => {
-    execFile(process.execPath, [file, ...args], { cwd: root, encoding: 'utf8', windowsHide: true, maxBuffer: 1 << 26, env: childEnv() }, (error, stdout) => {
-      if (error) return done(null);
+    const child = execFile(process.execPath, [file, ...args], { cwd: root, encoding: 'utf8', windowsHide: true, maxBuffer: 1 << 26, env: childEnv() }, (error, stdout) => {
+      if (error && !(anyCode && typeof error.code === 'number')) return done(null);
       try {
         return done(JSON.parse(stdout));
       } catch {
         return done(null);
       }
     });
+    if (input !== null) child.stdin.end(input);
   });
 }
 
@@ -103,10 +111,11 @@ export function projectEntries(listed, here) {
 }
 
 // The marks the person keeps for a project, in its Git folder: never committed, never shared.
-function statePath(root) {
+function gitFile(root, name) {
   const common = git(['rev-parse', '--path-format=absolute', '--git-common-dir'], root);
-  return common.ok ? join(common.out, STATE) : null;
+  return common.ok ? join(common.out, name) : null;
 }
+const statePath = (root) => gitFile(root, STATE);
 export const readState = (root) => ({ cases: {}, published: {}, ...(readJson(statePath(root) ?? '') ?? {}) });
 function writeState(root, state) {
   const path = statePath(root);
@@ -156,7 +165,10 @@ function readReleases(work) {
 // What a project's kit cannot give, by its version.
 export function absentData(version) {
   const before = (v) => compareVersions(version, v) < 0;
-  return { history: before('0.4.0'), refusals: before('0.4.0'), releases: before('0.4.0'), version: before('0.4.1'), disk: before('0.4.3'), live_train: before('0.4.3') };
+  return {
+    history: before('0.4.0'), refusals: before('0.4.0'), releases: before('0.4.0'), version: before('0.4.1'), disk: before('0.4.3'), live_train: before('0.4.3'),
+    decisions: before('0.4.4'), clean_tree: before('0.4.4'), config_change: before('0.4.4'),
+  };
 }
 
 export async function readProject(entry) {
@@ -173,6 +185,9 @@ export async function readProject(entry) {
     ...base, ok: true, kit: { name: kit.name, version: kit.version }, absent: absentData(kit.version), status, work,
     last_train: history.filter((e) => e.kind === 'train').at(-1) ?? null,
     releases: readReleases(work), state: readState(entry.path),
+    // Null until a session of the plugin 0.4.4 or later opens in this clone.
+    plugin: readJson(gitFile(entry.path, PLUGIN_RECORD) ?? ''),
+    decisions: readDecisions(work),
   };
 }
 
@@ -183,6 +198,11 @@ export async function projectDetail(project, { days = 7 } = {}) {
   const config = Object.fromEntries(['factory', 'rules', 'disk', 'disk.local'].map((name) => {
     const file = join(path, 'config', `${name}.json`);
     return [name, existsSync(file) ? (readJson(file) ?? { unreadable: true }) : null];
+  }));
+  // The text of the project files as they are written: a change starts from it, its layout kept.
+  const configText = Object.fromEntries(['factory', 'rules', 'disk'].map((name) => {
+    const file = join(path, 'config', `${name}.json`);
+    return [name, existsSync(file) && statSync(file).size <= CONTENT_MAX ? readFileSync(file, 'utf8') : null];
   }));
   const settings = {};
   for (const key of [...SETTINGS, 'warden.agentTrees', 'core.hooksPath']) {
@@ -204,13 +224,19 @@ export async function projectDetail(project, { days = 7 } = {}) {
     version: project.absent.version ? null : await kitJson(path, 'version.mjs', ['show', '--json']),
     version_error: versionError,
     kit_integrity: { files: Object.keys(readJson(join(path, 'scripts', 'warden', MANIFEST))?.files ?? {}).length, ...gaps },
-    config, settings,
+    config, config_text: configText, settings,
   };
 }
 
 // What waits for the person, from one project's data (docs/interface.md). Only what is theirs: never a refusal (the
 // author's), never a red main branch (a deposit repairs it), never an incident being retried.
-export function casesFor(project, { newestKit = null, disk = null } = {}) {
+// A kit is behind the newest version seen on the workstation: another project's kit, or the plugin.
+export function newestSeen(projects) {
+  const seen = projects.flatMap((p) => [p.kit && { version: p.kit.version, from: 'kit' }, p.plugin?.version && { version: p.plugin.version, from: 'plugin' }]).filter(Boolean);
+  return seen.sort((a, b) => compareVersions(a.version, b.version) || (a.from === 'plugin' ? 1 : -1)).at(-1) ?? null;
+}
+
+export function casesFor(project, { newestKit = null, newestFrom = 'kit', disk = null } = {}) {
   if (!project.ok) return [];
   const state = project.state ?? { cases: {}, published: {} };
   const cases = [];
@@ -227,7 +253,11 @@ export function casesFor(project, { newestKit = null, disk = null } = {}) {
   for (const alert of disk?.alerts ?? []) {
     add(`alert:${createHash('sha1').update(alert).digest('hex').slice(0, 12)}`, 'disk_alert', { since: null, source: 'disk.mjs report --json', vars: { alert } });
   }
-  if (newestKit && compareVersions(project.kit.version, newestKit) < 0) add(`kit:${project.kit.version}`, 'kit_behind', { since: null, source: 'scripts/warden/kit.json', vars: { kit: project.kit.version, newest: newestKit } });
+  if (newestKit && compareVersions(project.kit.version, newestKit) < 0) add(`kit:${project.kit.version}`, 'kit_behind', { since: null, source: 'scripts/warden/kit.json', vars: { kit: project.kit.version, newest: newestKit, from: newestFrom } });
+  // A product choice the factory may not take: the answer is the person's, given from the page.
+  for (const d of project.decisions ?? []) {
+    if (d.state === 'open') add(`decision:${d.id}`, 'decision', { since: d.at, source: `.work/decisions/${d.id}.json`, vars: { id: d.id, title: d.title, question: d.question, options: d.options, context: d.context, by: d.by } });
+  }
   if (!project.status.hooks_active) add('hooks', 'hooks_off', { since: null, source: 'status.mjs --json', vars: {} });
   return cases;
 }
@@ -245,6 +275,28 @@ export function gestureCommand(gesture, args, project) {
       return inFactory(kit('train.mjs', 'run', '--dry-run'));
     case 'disk.clean_own':
       return inFactory(kit('disk.mjs', 'clean', '--own', ...(args.deep ? ['--deep'] : []), ...(args.apply ? ['--apply'] : [])));
+    case 'disk.clean_tree': {
+      // The kit checks that the tree is one of the clone's and not the factory's (disk.mjs, cloneTree).
+      const tree = typeof args.tree === 'string' && isAbsolute(args.tree) && !/[\0-\x1f]/.test(args.tree) ? args.tree : null;
+      if (!tree) throw new Error(t('ui_server.bad_tree'));
+      return { ...kit('disk.mjs', 'clean', '--tree', tree, ...(args.deep ? ['--deep'] : []), ...(args.apply ? ['--apply'] : [])), cwd: project.path };
+    }
+    case 'decision.answer': {
+      const id = String(args.id ?? '');
+      const choice = args.choice === null || args.choice === undefined || args.choice === '' ? null : Number(args.choice);
+      const note = typeof args.note === 'string' ? args.note.trim() : '';
+      if (!/^\d{8}-\d{6}-[0-9a-f]{4}$/.test(id) || (choice !== null && !(Number.isInteger(choice) && choice >= 1 && choice <= 6)) || note.length > 4000) throw new Error(t('ui_server.bad_decision'));
+      const command = kit('decision.mjs', 'answer', id, ...(choice !== null ? ['--choice', String(choice)] : []), ...(note ? ['--note', note] : []));
+      return { ...command, show: `node scripts/warden/decision.mjs answer ${id}${choice !== null ? ` --choice ${choice}` : ''}${note ? ' --note "…"' : ''}`, cwd: project.path };
+    }
+    case 'config.deposit': {
+      const file = String(args.file ?? '');
+      const message = typeof args.message === 'string' ? args.message.trim() : '';
+      if (!CONFIG_FILES[file] || typeof args.content !== 'string' || args.content.length > CONTENT_MAX || /[\r\n]/.test(message) || message.length > 200) throw new Error(t('ui_server.bad_config'));
+      const command = kit('change.mjs', 'deposit', file, ...(message ? ['--message', message] : []));
+      const shown = `node scripts/warden/change.mjs deposit ${file}${message ? ` --message ${JSON.stringify(message)}` : ''}`;
+      return { ...command, input: args.content, show: `${shown} < ${t('ui_server.page_text')}`, cwd: project.path };
+    }
     case 'version.show':
       return { ...kit('version.mjs', 'show'), cwd: project.path };
     case 'release.build': {
@@ -266,9 +318,10 @@ export function gestureCommand(gesture, args, project) {
   }
 }
 
-function runCommand({ program, args, cwd }) {
+function runCommand({ program, args, cwd, input = null }) {
   return new Promise((done) => {
     const child = spawn(program, args, { cwd, windowsHide: true, env: childEnv() });
+    if (input !== null) child.stdin.end(input);
     let output = '';
     const keep = (chunk) => {
       output += chunk;
@@ -320,7 +373,8 @@ export async function startServer({ port = 0, here = mainRoot(ROOT), listed = ()
     let text = '';
     req.on('data', (chunk) => {
       text += chunk;
-      if (text.length > 64 * 1024) req.destroy();
+      // A configuration text goes up to 256 KiB, written as a JSON string.
+      if (text.length > 1024 * 1024) req.destroy();
     });
     req.on('end', () => {
       try {
@@ -341,10 +395,10 @@ export async function startServer({ port = 0, here = mainRoot(ROOT), listed = ()
     }
     if (route === 'GET /api/projects') {
       const projects = await Promise.all(entries().map(readProject));
-      const newestKit = projects.filter((p) => p.kit).map((p) => p.kit.version).sort(compareVersions).at(-1) ?? null;
+      const newest = newestSeen(projects);
       const disksRead = await Promise.all(projects.map(quickDisk));
-      const cases = projects.flatMap((p, i) => casesFor(p, { newestKit, disk: disksRead[i] }));
-      return send(res, 200, { read_at: new Date().toISOString(), here, newest_kit: newestKit, projects, cases });
+      const cases = projects.flatMap((p, i) => casesFor(p, { newestKit: newest?.version ?? null, newestFrom: newest?.from ?? 'kit', disk: disksRead[i] }));
+      return send(res, 200, { read_at: new Date().toISOString(), here, newest_kit: newest?.version ?? null, newest_from: newest?.from ?? null, projects, cases });
     }
     const entry = known(url.searchParams.get('path'));
     if (route === 'POST /api/projects') {
@@ -370,6 +424,13 @@ export async function startServer({ port = 0, here = mainRoot(ROOT), listed = ()
       if (!project.ok || project.absent.disk) return send(res, 200, null);
       if (url.searchParams.get('full') !== '1') return send(res, 200, await quickDisk(project));
       return send(res, 200, await kitJson(project.path, 'disk.mjs', ['report', '--json']));
+    }
+    // A configuration text checked by the project's own kit (change.mjs check): nothing is written.
+    if (route === 'POST /api/check') {
+      const { file, content } = await body(req);
+      if (!project.ok || project.absent.config_change) return send(res, 200, { unavailable: true });
+      if (!CONFIG_FILES[file] || typeof content !== 'string' || content.length > CONTENT_MAX) return send(res, 400, { error: t('ui_server.bad_config') });
+      return send(res, 200, (await kitJson(project.path, 'change.mjs', ['check', file, '--json'], { input: content, anyCode: true })) ?? { unavailable: true });
     }
     if (route === 'GET /api/file') {
       const path = workFile(project.work, url.searchParams.get('file'));

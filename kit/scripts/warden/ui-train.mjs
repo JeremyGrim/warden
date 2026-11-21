@@ -1,12 +1,14 @@
-// A project's train (F1), its push slot (F2) and its dock (F3). The only gesture is a dry run, in the factory tree;
-// a real train, a recovery or a merge are never offered here.
+// A project's train (F1), its push slot (F2), its dock (F3), and next to the dock the decisions the factory brings back
+// to the person. The only gesture of the train is a dry run, in the factory tree; a real train, a recovery or a merge
+// are never offered here.
 
 import { get, t } from './ui-api.mjs';
 import {
   absent, badge, bar, box, boxRow, btn, caption, fmtAge, fmtDate, fmtNum, fmtSeconds, h, kv, minutesSince, mono, relWork, sameCommit, short,
 } from './ui-dom.mjs';
+import { renderDecisions } from './ui-decisions.mjs';
 import { cell, list } from './ui-list.mjs';
-import { baselineHolds, classTone, factoryOf, haltLift, kitBefore, nextText, outcomeOf, trainState } from './ui-model.mjs';
+import { baselineHolds, classTone, DECISIONS_SUB, factoryOf, haltLift, kitBefore, nextText, outcomeOf, trainState } from './ui-model.mjs';
 import { subbar } from './ui-views.mjs';
 
 const SLOT_ABANDON_MIN = 50;
@@ -280,19 +282,24 @@ export function renderTrain(ctx, d) {
     Array.isArray(line?.pending) ? line.pending.length : null,
     (d.taken ?? []).length,
   ];
+  const open = d.absent?.decisions ? null : (d.decisions ?? []).filter((x) => x.state === 'open').length;
   const out = [stateBox(ctx, d)];
   if (!d.status.dock) {
     out.push(caption(null, t('ui.dock.none')));
+    out.push(subbar({ title: t('ui.nature.decision'), source: 'decisions/' }));
+    out.push(...renderDecisions(ctx, d));
     return out;
   }
   out.push(subbar({
-    title: t('ui.dock.title'), current: sub, onPick: (i) => ctx.setSub('dock', i), source: dockRel ? `${dockRel}/` : null,
+    title: t('ui.dock.and_decisions'), current: sub, onPick: (i) => ctx.setSub('dock', i), source: sub === DECISIONS_SUB ? 'decisions/' : dockRel ? `${dockRel}/` : null,
     items: [
       { label: t('ui.dock.ready'), n: counts[0] }, { label: t('ui.dock.refused'), n: counts[1] },
       { label: t('ui.dock.waiting'), n: counts[2] }, { label: t('ui.dock.taken'), n: counts[3] },
+      { label: t('ui.nature.decision'), n: open },
     ],
   }));
-  if (sub === 0) out.push(readyList(ctx, d, dockRel));
+  if (sub === DECISIONS_SUB) out.push(...renderDecisions(ctx, d));
+  else if (sub === 0) out.push(readyList(ctx, d, dockRel));
   else if (sub === 1) out.push(refusedList(ctx, d, dockRel));
   else if (sub === 2) out.push(waitingList(d));
   else out.push(takenList(ctx, d, dockRel));

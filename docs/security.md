@@ -9,7 +9,7 @@
   - the npm advisories are compared to a local clone of the public GitHub Advisory Database;
   - `cargo deny` downloads the public RustSec database and compares it locally.
 - **No telemetry.**
-- **The interface** (`ui.mjs`) listens on 127.0.0.1 only, answers only its own names, and asks every call for the random token of its address. Its content policy loads nothing from outside; it reads the work folder only, and runs only the gestures of [Interface](interface.md).
+- **The interface** (`ui.mjs`) listens on 127.0.0.1 only, answers only its own names, and asks every call for the random token of its address. Its content policy loads nothing from outside; it reads the work folder only, and runs only the gestures of [Interface](interface.md). A configuration change made from the page is committed under the hooks and docked for the train: the page pushes nothing.
 
 ## Secrets
 
@@ -19,7 +19,7 @@
 
 ## The plugin
 
-- The only hook runs at session start. It reads the project's `kit.json` and `core.hooksPath`, and prints at most three lines.
+- The only hook runs at session start. It reads the project's `kit.json` and `core.hooksPath`, and prints at most three lines. It writes one file, the plugin version, in the clone's Git folder (`warden-plugin.json`), when that version changes.
 - There is no hook on tool calls, and nothing is recorded from the session.
 - The factory agent has no authority to change the workstation configuration or to clean the disk without the person's word.
 

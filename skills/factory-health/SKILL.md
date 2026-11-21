@@ -19,7 +19,7 @@ Look, measure, propose. The factory cleans what regenerates in its own tree; eve
 - `node scripts/warden/disk.mjs guard` fails when a budget of `config/disk.json` is exceeded (local overrides in `config/disk.local.json`). The factory tree never counts in the worktree budget.
 - `node scripts/warden/disk.mjs clean` lists what regenerates quickly, as a dry run. `--deep` adds `target` and `node_modules`. It never follows a link, never leaves the root, and refuses a tree where a build is running.
   - **Your own tree**: `clean --own --apply` removes it without asking anyone (`--deep` when that is not enough). `--own` refuses in any other tree.
-  - **Any other tree**: `--apply` only on the person's word.
+  - **Any other tree**: the person's gesture. `clean --tree <path>` lists one tree of the clone alone (or of a folder declared with `warden.agentTrees`), and `--apply` removes, only on the person's word; the interface offers the same gesture. It refuses the factory tree, which cleans itself with `--own`.
 - A `target` shared between two trees (a link, or `CARGO_TARGET_DIR` outside the tree) is an alert: Cargo can report success without compiling that tree.
 
 ## Memory

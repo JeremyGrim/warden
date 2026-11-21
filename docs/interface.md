@@ -30,13 +30,13 @@ The page adds and removes them too. Removing a project from the list never touch
 
 | View | What it shows | Source |
 |---|---|---|
-| Waiting for you | Only what is the person's: a memory halt or a check that cannot run, said after `train.halt_notice_minutes`; a release not marked published; a removable worktree or a disk budget exceeded outside the factory tree; a kit older than the newest of the workstation; hooks off in a clone | `status.mjs --json`, `disk.mjs report --json --quick`, `.work/releases/` |
+| Waiting for you | Only what is the person's: a decision the factory raised; a memory halt or a check that cannot run, said after `train.halt_notice_minutes`; a release not marked published; a removable worktree or a disk budget exceeded outside the factory tree; a kit older than the plugin or than the newest kit of the workstation; hooks off in a clone | `.work/decisions/`, `status.mjs --json`, `disk.mjs report --json --quick`, `.work/releases/`, the plugin record |
 | Projects | Each project: its train, its dock, its slot, its kit and hooks, its last train and how it ended | `status.mjs --json`, `.work/warden-history.jsonl` |
-| Train | The train under way (batch, trial, step), or its halt (every field, what lifts it), or the last train; the slot; the dock: ready, refused, waiting, taken | `.work/train-ready/` |
+| Train | The train under way (batch, trial, step), or its halt (every field, what lifts it), or the last train; the slot; the dock: ready, refused, waiting, taken; the decisions of the factory: open, answered, closed | `.work/train-ready/`, `.work/decisions/` |
 | History | Trains, pushes, guards, per deposit, and the measures over 7, 30 or 90 days | `.work/warden-history.jsonl`, `status.mjs --history --json` |
-| Health | Disk against its budgets, trees, memory against the train's minimum; the kit, its integrity and the hooks | `disk.mjs report --json`, `kit.json` |
+| Health | Disk against its budgets, trees, memory against the train's minimum; the kit, the plugin, the integrity and the hooks | `disk.mjs report --json`, `kit.json`, the plugin record |
 | Version | The version, its line, its manifests; the releases and their artifacts | `version.mjs show --json`, `.work/releases/` |
-| Configuration | The project's configuration, read only; the workstation settings | `config/*.json`, `git config` |
+| Configuration | The project's configuration, checked and deposited as a change; the workstation settings | `config/*.json`, `git config` |
 
 Never waiting for the person: a refusal (its author fixes it), a red main branch (a deposit repairs it), an incident being retried, an interrupted train (the next one recovers it).
 
@@ -46,13 +46,20 @@ Never waiting for the person: a refusal (its author fixes it), a red main branch
 |---|---|---|
 | Dry run of a train | `train.mjs run --dry-run` | the factory tree |
 | The factory's own cleanup, listed then applied | `disk.mjs clean --own [--deep] [--apply]` | the factory tree |
+| The cleanup of one other tree of the clone, listed then applied | `disk.mjs clean --tree <tree> [--deep] [--apply]` | the project |
+| Answer a decision of the factory | `decision.mjs answer <id> [--choice <n>] [--note <text>]` | the project |
+| Deposit a change of `config/factory.json`, `rules.json` or `disk.json` | `change.mjs deposit <file> [--message <text>]`, the text written in the page on its input | the project |
 | Read the version | `version.mjs show` | the project |
 | Build a release of a commit of the main branch | `release.mjs build --commit <sha>` | the factory tree, slot free |
 | Turn the hooks on | `git config core.hooksPath .githooks` | the clone |
 | A workstation setting | `git config warden.factory\|slot\|tasks\|ghsa\|locale <value>` | the clone |
 | Mark a case seen, a release published | a mark kept in the clone's Git folder (`warden-ui.json`), never committed | the clone |
 
-The page shows the command, the tree it runs in, its output and its exit code. It never runs anything else: no real train, no merge or approval, no skipped check, no recovery or version bump (the factory does them), no cleanup of another tree, no change of branch, no push, no stopped process, no publication. The hooks can only be turned on. A change of the project configuration goes through a deposit like any change; the page shows it read only.
+The page shows the command, the tree it runs in, its output and its exit code. It never runs anything else: no real train, no merge or approval, no skipped check, no recovery or version bump (the factory does them), no removal of a worktree, no change of branch, no push, no stopped process, no publication. The hooks can only be turned on.
+
+- **Cleaning one tree.** Only a tree of the clone, or a tree of a folder declared with `warden.agentTrees`; never the factory tree (it cleans itself), never the tree the command runs from beside it, never the workstation roots. What it removes regenerates; `--deep` removes `target` and `node_modules`. It refuses while a build runs in that tree.
+- **A decision of the factory.** The factory raises a product choice it may not take (`decision.mjs raise`): a title, a question, a few options, and a file of the work folder for context. The person answers with an option, a note, or both, and may change the answer until the factory acts on it and closes the decision.
+- **A change of the project configuration** goes the way every change goes. The page checks the text against the shape of the file (`change.mjs check`, `schema.mjs`): a wrong type, a missing key or a pattern that does not compile is an error and blocks; a key the kit does not read is said. The deposit commits it on a branch of its own (`warden/config-<file>-<moment>`), in a tree of its own made from the remote main branch and removed after, under the hooks, and docks it (`config-<file>.txt`). The train takes it to the main branch through every check. Nothing is pushed by the gesture, and no tree changes branch. A refused change is replaced by depositing again; a change still waiting for the train is never overwritten.
 
 ## Security
 
@@ -61,9 +68,6 @@ The page shows the command, the tree it runs in, its output and its exit code. I
 - Its content policy loads nothing from outside: no font, script, image or measure. Nothing leaves the workstation.
 - It reads files of the work folder only, never a path outside it.
 
-## Not yet in Warden
+## The plugin version
 
-- The decisions the factory brings back to the person are free text in `.work/factory-log.md`: the page does not list them.
-- The plugin version is unknown to the kit: a kit is compared with the newest kit of the workstation.
-- Cleaning another tree alone: `disk.mjs clean --root` also cleans the tree it runs in and the workstation roots.
-- Changing the project configuration from the page: the command that would write it in a tree of its own and dock it does not exist yet.
+The kit does not carry the plugin. The plugin's session hook leaves the plugin version in the clone's Git folder (`warden-plugin.json`: the version and since when), written only when it changes; the page reads it there. Until a session of the plugin 0.4.4 or later opens in a clone, the page says it does not know, and compares the kit with the newest kit of the workstation.

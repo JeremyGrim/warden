@@ -34,6 +34,8 @@ warden (this repository)
 | `train.mjs` | The train |
 | `release.mjs` | A release of a commit of the main branch, in its own tree, fingerprinted |
 | `version.mjs` | The version of every manifest, and its patch bump within the line, on the factory's own branch |
+| `schema.mjs`, `change.mjs` | The shape of the project configuration; a change of it checked, committed in a tree of its own and docked |
+| `decision.mjs` | The decisions the factory raises and the person answers, in the work folder |
 | `history.mjs` | The local history of pushes, guards, trains and releases, and its summary |
 | `status.mjs` | The state an agent or the factory reads; the history summary |
 | `disk.mjs`, `priority.mjs` | Disk budgets and cleaning; CPU priority during a train |

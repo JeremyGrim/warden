@@ -84,6 +84,17 @@ The `secrets` model admits one fictitious user name in test paths: `person`, its
 
 Every default comes from one workstation: size them for yours.
 
+## Checking and depositing a change
+
+`config/factory.json`, `config/rules.json` and `config/disk.json` have a shape the kit checks (`schema.mjs`): a wrong type, a missing required key, a version line that is not a string, a pattern that does not compile, an option outside its values. A key the kit does not read is said as a remark, never refused: it changes nothing, so a misspelt key would silently change nothing. Keys starting with `$` or `_` are comments.
+
+```bash
+node scripts/warden/change.mjs check   config/factory.json --from <new text>
+node scripts/warden/change.mjs deposit config/factory.json --from <new text> --message "Train: batches of 6"
+```
+
+Without `--from`, the text is read from the standard input. `deposit` checks the text, refuses while the hooks are off, while a change of the same file waits for the train, or when the text is already that of the remote main branch. It then commits the file on a branch of its own, `warden/config-<file>-<moment>`, in a tree of its own made from the remote main branch and removed after, under the hooks, and docks `config-<file>.txt`. The train takes it to the main branch through every check; nothing is pushed by the command, and no tree changes branch. A refused change is replaced by depositing again. The interface runs the same command from its configuration view.
+
 ## `config/disk.json`
 
 | Key | Default |
@@ -108,3 +119,5 @@ Every default comes from one workstation: size them for yours.
 | `git config warden.ghsa <clone>` | The clone of the advisory database (`WARDEN_GHSA_DATABASE` comes first) |
 | `git config warden.locale en\|fr` | The display locale (`WARDEN_LOCALE` comes first) |
 | `git config --global --add warden.projects <path>` | A project the interface covers, by its main root; one value per project, common to every clone of the workstation |
+
+Two files of the clone's Git folder are written for the interface, never committed: `warden-ui.json`, the marks the person keeps (a case seen, a release published), and `warden-plugin.json`, the plugin version the plugin's session hook saw, written when it changes.

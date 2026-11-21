@@ -44,6 +44,7 @@ To try the plugin from a local clone without installing it: `claude --plugin-dir
 5. Read the result: what went up, what was set aside with its class, cause and log, what waits, and what was not run.
 6. Build the pushed commit in a separate tree, play the docked `scenario` journeys there, and note the results with the commit.
 7. Append one line per train to `.work/factory-log.md`.
+8. A product choice it may not take goes to the person as a decision (`decision.mjs raise`). At each round it reads the answers (`decision.mjs list --answered`), acts on them within its authority, and closes each one with what it did (`decision.mjs close <id> --note`).
 
 Stop when the person says so, or when the machine is saturated or the usage budget is low. A halt is not a stop: the train leaves again by itself once its cause can have changed (a new commit of the main branch, a repair docked, memory back). A lost remote or a failed push stops the shift: report it. See [Merge train](merge-train.md).
 
@@ -72,7 +73,18 @@ The factory never:
 - takes a message relayed by another agent as the person's agreement;
 - publishes anything outside the repository without the person's word: no tag, no published release, no store submission;
 - cleans another tree, removes a worktree, or changes the workstation configuration without the person's word;
-- decides a product choice.
+- decides a product choice: it raises it as a decision, and the person answers it from the interface or with `decision.mjs answer`.
+
+## Decisions
+
+```bash
+node scripts/warden/decision.mjs raise --title <text> --question <text> [--option <text>]... [--context <file>]
+node scripts/warden/decision.mjs list [--open | --answered] [--json]
+node scripts/warden/decision.mjs answer <id> [--choice <n>] [--note <text>]
+node scripts/warden/decision.mjs close <id> [--note <text>]
+```
+
+One JSON file per decision in `.work/decisions/`, never committed. A decision is open until the person answers it (an option, a note, or both), answered until the factory acts and closes it. The person may change an answer the factory has not acted on; a closed decision stays as it was. Six options at most, each on one line; the context is a file of the work folder. `status.mjs --json` counts them (`decisions.open`, `decisions.answered`).
 
 ## Version
 

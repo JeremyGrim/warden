@@ -1,11 +1,12 @@
 // The Warden interface in the browser: the rail, the pages, the rereads. It shows; it never decides. The only
-// gestures are those ui.mjs runs (a dry run, the factory's own cleanup, reading the version, a release, turning the
-// hooks on, the workstation settings, the person's marks, the list of projects). Nothing is pushed: the page reads
-// the files again, every 10 s the view shown and every 15 s the projects, and right after a gesture.
+// gestures are those ui.mjs runs (a dry run, the cleanup of one tree, reading the version, a release, turning the
+// hooks on, the workstation settings, answering a decision of the factory, depositing a configuration change, the
+// person's marks, the list of projects). Nothing is pushed: the page reads the files again, every 10 s the view shown
+// and every 15 s the projects, and right after a gesture.
 
 import { errorText, get, loadStrings, post, readToken, t } from './ui-api.mjs';
 import { badge, fmtClock, h, icon, keepFocus, samePath } from './ui-dom.mjs';
-import { openFile, runGesture, runStation, setupDrawer } from './ui-drawer.mjs';
+import { openFile, openForm, runGesture, runStation, setupDrawer } from './ui-drawer.mjs';
 import { renderInbox } from './ui-inbox.mjs';
 import { projectOf, todoCount, trainState } from './ui-model.mjs';
 import { renderProject, renderProjects, tabLabel, TABS } from './ui-projects.mjs';
@@ -220,7 +221,8 @@ const ctxActions = {
   latest: () => store.detail,
   toast,
   gesture: (spec) => runGesture(spec),
-  file: (project, file, title = null) => openFile({ project, file, title }),
+  file: (project, file, title = null, back = null) => openFile({ project, file, title, back }),
+  form: (spec) => openForm(spec),
   mark,
   hooksOn: (project) => runGesture({ project, gesture: 'hooks.on', args: {}, title: t('ui.gesture.hooks_on'), command: 'git config core.hooksPath .githooks', cwd: project.path }),
   toggleAdd: (open) => {
@@ -275,7 +277,7 @@ function renderRail() {
   });
   const dark = isDark();
   $('rail').replaceChildren(
-    h('div', { class: 'brand' }, icon('shield', 22), h('span', { class: 'lab' }, 'Warden'), store.projects?.newest_kit ? h('span', { class: 'ver', title: t('ui.kit.newest') }, t('ui.kit.version', { v: store.projects.newest_kit })) : null),
+    h('div', { class: 'brand' }, icon('shield', 22), h('span', { class: 'lab' }, 'Warden'), store.projects?.newest_kit ? h('span', { class: 'ver', title: t('ui.kit.newest') }, store.projects.newest_from === 'plugin' ? t('ui.plugin.version', { v: store.projects.newest_kit }) : t('ui.kit.version', { v: store.projects.newest_kit })) : null),
     h('nav', { class: 'navs', 'aria-label': t('ui.rail.nav') }, nav('inbox', t('ui.rail.yours'), 'inbox', cases), nav('projects', t('ui.rail.projects'), 'folder', projects.length)),
     h('div', { class: 'tree' }, h('div', { class: 'treeh' }, t('ui.rail.station')), rows, h('button', { type: 'button', class: 'rlmore', on: { click: () => go('projects') } }, t('ui.rail.all_projects'))),
     h('div', { class: 'railfoot' },

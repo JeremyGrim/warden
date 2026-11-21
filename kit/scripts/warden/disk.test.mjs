@@ -8,7 +8,7 @@ import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 
 import {
-  GIB, buildInTree, cargoLocks, clean, cleanBuild, disposables, evaluate, heldLocks, measure, readable, refusalReason,
+  GIB, buildInTree, cargoLocks, clean, cleanBuild, cloneTree, disposables, evaluate, heldLocks, measure, readable, refusalReason,
   sharedCaches, sharedTarget, treeBusy, worktrees,
 } from './disk.mjs';
 
@@ -337,4 +337,21 @@ test('evaluate measures the shared cache and alerts beyond its ceiling, without 
   assert.equal(over.measures.build.bytes, under.measures.build.bytes, 'the cache is not part of the tree build');
   const seen = await clean({ root, deep: true });
   assert.ok(seen.every((r) => !r.target.startsWith(cache)), 'clean never aims at it');
+});
+
+test('--tree names a tree of the clone, or of a declared folder of agent trees, and nothing else', (t) => {
+  const { root, tree, git } = repoWithTree(t);
+  assert.equal(cloneTree(root, root), true, 'the main tree');
+  assert.equal(cloneTree(root, tree), true, 'a worktree');
+  assert.equal(cloneTree(root, 'tree'), false, 'never a relative path');
+  assert.equal(cloneTree(root, join(dirname(root), 'elsewhere')), false, 'never a folder that does not exist');
+  const outside = join(dirname(root), 'agents', 'one');
+  mkdirSync(outside, { recursive: true });
+  git(outside, 'init', '-b', 'main');
+  assert.equal(cloneTree(root, outside), false, 'a repository of the workstation that nobody declared');
+  git(root, 'config', '--add', 'warden.agentTrees', join(dirname(root), 'agents'));
+  assert.equal(cloneTree(root, outside), true, 'a tree of the declared folder');
+  assert.equal(cloneTree(root, join(dirname(root), 'agents')), false, 'the folder itself is no tree');
+  mkdirSync(join(outside, 'sub'));
+  assert.equal(cloneTree(root, join(outside, 'sub')), false, 'a folder inside a tree is not a tree');
 });

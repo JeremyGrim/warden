@@ -138,7 +138,10 @@ function build(key, cfg, redraw) {
     table.append(row);
     if (open) table.append(h('div', { class: 'ldet' }, r.detail()));
   }
-  out.push(h('div', { class: 'tblwrap' }, table));
+  // A redraw keeps where the person scrolled a wide table: a gesture's button stays under the pointer.
+  const wrap = h('div', { class: 'tblwrap', on: { scroll: (e) => { s.left = e.target.scrollLeft; } } }, table);
+  if (s.left) requestAnimationFrame(() => { wrap.scrollLeft = s.left; });
+  out.push(wrap);
   if (total > s.n) {
     out.push(h('button', { type: 'button', class: 'more', 'data-fk': `${key}:more`, on: { click: () => { s.n += page; redraw(); } } }, t('ui.list.more', { n: Math.min(page, total - s.n) })));
   }

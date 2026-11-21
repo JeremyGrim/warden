@@ -3,7 +3,8 @@
 // the kit tests spared when the kit did not change, a train of branches with one culprit, its structured refusal and
 // its return on a new commit, an incident of the workstation replayed, a red main branch that blames no branch and
 // lifts with its repair, a check that could not run and is said once when it persists, a patch version bump, a release, an interrupted train recovered, the history, the
-// factory role and the status an agent reads when it joins. Nothing is simulated: real repositories, real hooks,
+// factory role and the status an agent reads when it joins, and the interface: its reading, a decision answered, one tree
+// cleaned, a configuration change deposited and taken up, the plugin version. Nothing is simulated: real repositories, real hooks,
 // Cargo and pnpm. The projects live in a temporary folder removed at the end;
 // the report stays.
 //
@@ -481,6 +482,59 @@ async function nodeOnly() {
       await api(`/api/mark?path=${here}`, { method: 'POST', body: { label: release.vars.label, published: true } });
       const after = await json('/api/projects');
       check('a release marked published on the person\'s word no longer waits', !after.cases.some((c) => c.id === release.id));
+      const run_ = (path, gesture, args = {}) => json(`/api/run?path=${encodeURIComponent(path)}`, { method: 'POST', body: { gesture, args } });
+
+      currentStep = 'B. The person answers a decision of the factory from the interface';
+      const raised = node(root, 'scripts/warden/decision.mjs', 'raise', '--title', 'Keep the third function?', '--question', 'It waits behind a check that cannot run.', '--option', 'Keep it', '--option', 'Drop it', '--context', last.log);
+      const id = /Decision (\S+) raised/.exec(raised.text)?.[1];
+      const asked = (await json('/api/projects')).cases.find((c) => c.kind === 'decision' && c.vars.id === id);
+      check('a decision the factory raises waits for the person, with its options and its context', raised.status === 0 && asked?.vars.options.length === 2 && asked.vars.context === last.log, raised.log);
+      const answer = await run_(root, 'decision.answer', { id, choice: 2, note: 'too small to wait for' });
+      const counted = JSON.parse(node(root, 'scripts/warden/status.mjs', '--json').text).decisions;
+      check('the answer is the person\'s, written by the kit; the decision then waits for the factory', answer.code === 0 && !(await json('/api/projects')).cases.some((c) => c.kind === 'decision') && counted?.open === 0 && counted.answered === 1, `${JSON.stringify(answer)} ${JSON.stringify(counted)}`);
+      const closed = node(root, 'scripts/warden/decision.mjs', 'close', id, '--note', 'agent-i dropped');
+      const late = await run_(root, 'decision.answer', { id, choice: 1 });
+      check('once the factory acted and closed it, the answer stays as it was', closed.status === 0 && late.code !== 0 && /closed/.test(late.output), `${closed.log} ${JSON.stringify(late)}`);
+
+      currentStep = 'B. The person cleans one tree alone from the interface';
+      const agentTree = join(TRAY, 'node-only-agent-d');
+      write(agentTree, { 'node_modules/.cache/old.bin': 'x'.repeat(1024) });
+      write(root, { 'node_modules/.cache/mine.bin': 'mine' });
+      const listed = await run_(root, 'disk.clean_tree', { tree: agentTree });
+      const cleaned = await run_(root, 'disk.clean_tree', { tree: agentTree, apply: true });
+      check('one tree is listed, then cleaned, and only it', listed.code === 0 && listed.output.includes('.cache') && cleaned.code === 0 && !existsSync(join(agentTree, 'node_modules', '.cache')) && existsSync(join(root, 'node_modules', '.cache', 'mine.bin')), `${JSON.stringify(listed)} ${JSON.stringify(cleaned)}`);
+      const notTree = await run_(root, 'disk.clean_tree', { tree: TRAY, apply: true });
+      git(root, 'config', 'warden.factory', root);
+      const factoryTree = await run_(root, 'disk.clean_tree', { tree: root, apply: true });
+      git(root, 'config', '--unset', 'warden.factory');
+      check('a folder that is no tree of the clone, and the factory tree, are refused', notTree.code !== 0 && /not a tree of this clone/.test(notTree.output) && factoryTree.code !== 0 && /factory tree/.test(factoryTree.output), `${notTree.output} ${factoryTree.output}`);
+
+      currentStep = 'B. The person changes the configuration from the interface, and the train takes it up';
+      const rust = join(TRAY, 'rust-node');
+      const disk = JSON.parse(readFileSync(join(rust, 'config', 'disk.json'), 'utf8'));
+      const wrong = await json(`/api/check?path=${encodeURIComponent(rust)}`, { method: 'POST', body: { file: 'config/disk.json', content: JSON.stringify({ ...disk, max_worktrees: -1, max_trees: 3 }) } });
+      check('a wrong value is an error, an unknown key a remark, before anything is written', wrong.errors === 1 && wrong.problems[0].path === 'max_worktrees' && wrong.problems.some((p) => p.level === 'warning' && p.path === 'max_trees'), JSON.stringify(wrong));
+      const text = `${JSON.stringify({ ...disk, max_worktrees: 3 }, null, 2)}\n`;
+      const deposited = await run_(rust, 'config.deposit', { file: 'config/disk.json', content: text, message: 'Disk: three agent trees' });
+      const dockFile = join(rust, '.work', 'train-ready', 'config-disk.txt');
+      const branch = /branch = (\S+)/.exec(existsSync(dockFile) ? readFileSync(dockFile, 'utf8') : '')?.[1];
+      check('the change is committed on a branch of its own and docked, no tree changes branch, nothing is pushed', deposited.code === 0 && Boolean(branch) && git(rust, 'rev-parse', '--abbrev-ref', 'HEAD').text.trim() === 'main' && !existsSync(join(rust, '.work', 'change-tree')) && run('git', ['--git-dir', join(TRAY, 'rust-node.git'), 'branch', '--list', branch], TRAY).text.trim() === '', `${JSON.stringify(deposited)}`);
+      const twice = await run_(rust, 'config.deposit', { file: 'config/disk.json', content: text.replace('"max_worktrees": 3', '"max_worktrees": 4') });
+      check('a second change of the same file waits for the first one to go up', twice.code !== 0 && /waits for the train/.test(twice.output), twice.output);
+      const taken = node(rust, 'scripts/warden/train.mjs', 'run', '--agent', 'factory');
+      const onMain = JSON.parse(run('git', ['--git-dir', join(TRAY, 'rust-node.git'), 'show', 'main:config/disk.json'], TRAY).text || '{}');
+      check('the train takes it up through its checks, like any change', taken.status === 0 && onMain.max_worktrees === 3 && !existsSync(dockFile), taken.log);
+      await slotReleased(rust);
+
+      currentStep = 'B. The plugin version is seen by the interface';
+      const hook = spawnSync(process.execPath, [join(REPO, 'hooks', 'session-start.mjs')], { input: JSON.stringify({ cwd: root, source: 'resume' }), encoding: 'utf8', env: ENV, windowsHide: true });
+      const record = readJson(join(root, '.git', 'warden-plugin.json'));
+      const seen = (await json('/api/projects')).projects.find((p) => p.here);
+      check('the session hook of the plugin leaves its version in the clone, and the page reads it', hook.status === 0 && record?.version === PLUGIN.version && seen.plugin?.version === PLUGIN.version, JSON.stringify(record));
+      // A plugin newer than the kit: the record a later plugin would leave.
+      writeFileSync(join(root, '.git', 'warden-plugin.json'), `${JSON.stringify({ version: '9.9.9', since: record?.since })}\n`);
+      const behind = (await json('/api/projects')).cases.find((c) => c.kind === 'kit_behind' && c.project === seen.path);
+      check('a kit behind the plugin waits for the person, said as such', behind?.vars.from === 'plugin' && behind.vars.newest === '9.9.9', JSON.stringify(behind));
     } finally {
       child.kill();
     }

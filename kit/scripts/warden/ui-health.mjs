@@ -1,9 +1,9 @@
 // A project's health (F8, F9): the disk against its budgets, the trees, the memory against the train's threshold, and
-// the kit with its hooks. The full disk report walks folders: it is read on this tab only. The factory cleans its own
-// tree; another tree is the person's, and no gesture here touches it.
+// the kit with its hooks and the plugin. The full disk report walks folders: it is read on this tab only. The factory
+// cleans its own tree; another tree is the person's, cleaned alone on their gesture, and never removed from here.
 
 import { t } from './ui-api.mjs';
-import { absent, badge, box, btn, caption, compareVersions, fmtClock, fmtGib, fmtNum, GIB, h, kv, measure, skeleton } from './ui-dom.mjs';
+import { absent, badge, box, btn, caption, compareVersions, fmtClock, fmtDate, fmtGib, fmtNum, GIB, h, kv, measure, samePath, skeleton } from './ui-dom.mjs';
 import { cell, list } from './ui-list.mjs';
 import { factoryOf } from './ui-model.mjs';
 import { subbar } from './ui-views.mjs';
@@ -19,6 +19,21 @@ export function cleanOwn(ctx, d, deep = false) {
     next: () => ({
       label: deep ? t('ui.clean.apply_deep') : t('ui.clean.apply'),
       run: () => ctx.gesture({ project: d, gesture: 'disk.clean_own', args: { deep, apply: true }, title: t('ui.gesture.clean_own'), command: words(true), cwd: d.status.factory_tree }),
+    }),
+  });
+}
+
+// Another tree of the clone, on the person's gesture: listed first, then cleaned with the same `--deep`. It runs from
+// the project root; the kit refuses a tree that is not the clone's, the factory tree, and a tree being compiled, and it
+// never removes a worktree.
+export function cleanTree(ctx, d, tree, deep = false) {
+  const words = (apply) => ['node scripts/warden/disk.mjs clean --tree', tree, deep ? '--deep' : '', apply ? '--apply' : ''].filter(Boolean).join(' ');
+  ctx.gesture({
+    project: d, gesture: 'disk.clean_tree', args: { tree, deep, apply: false }, title: t('ui.clean.tree_list'), command: words(false), cwd: d.path,
+    option: { label: '--deep', on: deep, set: (value) => cleanTree(ctx, d, tree, value) },
+    next: () => ({
+      label: deep ? t('ui.clean.apply_deep') : t('ui.clean.apply'),
+      run: () => ctx.gesture({ project: d, gesture: 'disk.clean_tree', args: { tree, deep, apply: true }, title: deep ? t('ui.clean.apply_deep') : t('ui.clean.apply'), command: words(true), cwd: d.path }),
     }),
   });
 }
@@ -69,10 +84,17 @@ function diskRows(data) {
 
 function treesList(ctx, d, data) {
   const trees = data.trees ?? [];
+  const older = Boolean(d.absent?.clean_tree);
+  // What the person may do to a tree, said in its detail: clean it alone, or why not.
+  const cleanup = (tree) => {
+    if (tree.absent) return [t('ui.tree.cleanup'), t('ui.tree.cleanup_gone')];
+    if (older) return [t('ui.tree.cleanup'), h('span', { class: 'wrap' }, t('ui.tree.cleanup_older'), ' ', absent(d.kit.version))];
+    return [t('ui.tree.cleanup'), t('ui.tree.cleanup_text')];
+  };
   return list(`trees:${d.path}`, {
     title: t('ui.disk.trees'),
     cols: [t('ui.col.state'), t('ui.col.tree_branch'), t('ui.col.age'), t('ui.col.modified'), t('ui.col.unpushed')],
-    grid: '170px minmax(0,1.8fr) 110px 110px 110px', minWidth: 820,
+    grid: '170px minmax(0,1.8fr) 100px 100px 100px', minWidth: 980, actionsWidth: '170px',
     strip: [{ id: 'removable', label: t('ui.tree.removable'), tone: 'todo' }, { id: 'busy', label: t('ui.tree.busy'), tone: 'idle' }, { id: 'absent', label: t('ui.tree.absent'), tone: 'unk' }],
     stripLabel: t('ui.col.state'), search: t('ui.disk.search_trees'), empty: t('ui.disk.trees_empty'),
     cap: t('ui.disk.trees_cap'),
@@ -82,7 +104,8 @@ function treesList(ctx, d, data) {
       return {
         id: tree.path, st, search: `${tree.path} ${tree.branch ?? ''}`,
         cells: [state, cell(tree.path, tree.branch ?? null, { mono: true }), cell(tree.absent ? '—' : t('ui.period.days', { n: tree.ageDays ?? 0 })), cell(tree.absent ? '—' : String(tree.modified ?? 0)), cell(tree.absent ? '—' : String(tree.unpushed ?? 0))],
-        detail: () => h('div', { class: 'detail' }, kv([[t('ui.tree.cleanup'), t('ui.tree.cleanup_text'), { gap: 'M15' }], [t('ui.tree.removal'), t('ui.tree.removal_text')]])),
+        actions: tree.absent || older || samePath(tree.path, d.status.factory_tree) ? [] : [{ label: t('ui.clean.tree_list'), title: t('ui.clean.tree_only'), run: () => cleanTree(ctx, d, tree.path) }],
+        detail: () => h('div', { class: 'detail' }, kv([cleanup(tree), [t('ui.tree.removal'), t('ui.tree.removal_text')]])),
       };
     }),
   });
@@ -122,9 +145,23 @@ function memoryView(ctx, d) {
   ];
 }
 
+// The plugin of this clone, as its session hook left it (from the plugin 0.4.4): its version, since when, and whether
+// the kit lags behind it.
+function pluginRow(d) {
+  const plugin = d.plugin?.version ? d.plugin : null;
+  if (!plugin) return measure(t('ui.kit.plugin'), t('ui.kit.plugin_none'));
+  const behind = compareVersions(d.kit.version, plugin.version) < 0;
+  const since = plugin.since ? t('ui.kit.plugin_since', { at: fmtDate(plugin.since) }) : '';
+  return measure(t('ui.kit.plugin'), plugin.version, {
+    mono: true, tone: behind ? 'todo' : null, toneLabel: t('ui.kit.behind'),
+    cap: [since, behind ? t('ui.kit.plugin_behind', { kit: d.kit.version, plugin: plugin.version }) : ''].filter(Boolean).join(' · '),
+  });
+}
+
 function kitView(ctx, d) {
   const s = d.status;
   const newest = ctx.data?.newest_kit ?? null;
+  const fromPlugin = ctx.data?.newest_from === 'plugin';
   const behind = Boolean(newest) && compareVersions(d.kit.version, newest) < 0;
   const integrity = d.kit_integrity ?? { files: 0, changed: [], extra: [], missing: [] };
   const gaps = [...(integrity.changed ?? []).map((f) => ['changed', f]), ...(integrity.extra ?? []).map((f) => ['extra', f]), ...(integrity.missing ?? []).map((f) => ['missing', f])];
@@ -135,8 +172,11 @@ function kitView(ctx, d) {
   return [
     box(
       measure(t('ui.col.kit'), `${d.kit.name} ${d.kit.version}`, { mono: true }),
-      measure(t('ui.kit.newest'), newest ?? '—', { mono: true, tone: behind ? 'todo' : null, toneLabel: t('ui.kit.behind'), cap: behind ? t('ui.kit.behind_text') : t('ui.kit.newest_cap') }),
-      measure(t('ui.kit.plugin'), t('ui.kit.plugin_unknown'), { gapId: 'M14' }),
+      measure(t('ui.kit.newest'), newest ?? '—', {
+        mono: true, tone: behind ? 'todo' : null, toneLabel: t('ui.kit.behind'),
+        cap: [fromPlugin ? t('ui.kit.newest_cap_plugin') : t('ui.kit.newest_cap'), behind ? t('ui.kit.behind_text') : ''].filter(Boolean).join(' · '),
+      }),
+      pluginRow(d),
       measure(t('ui.kit.integrity'), gaps.length ? t('ui.kit.integrity_gaps', { n: gaps.length, files: integrity.files }) : t('ui.kit.integrity_ok', { files: integrity.files }), { tone: gaps.length ? 'todo' : 'ok', toneLabel: gaps.length ? t('ui.kit.integrity_bad') : t('ui.kit.integrity_good') }),
       hooks,
       measure(t('ui.kit.rules'), s.rules_source ?? t('ui.kit.no_rules'), { mono: Boolean(s.rules_source) }),

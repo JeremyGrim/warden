@@ -167,6 +167,8 @@ export const boxRow = (...children) => h('div', { class: 'boxr' }, ...children);
 export const note = (tone, label, text, ...rest) => box(boxRow(badge(tone, label), h('span', { class: 'grow' }, text), ...rest));
 export const caption = (gapId, text) => h('div', { class: 'gapc' }, gapId ? gap(gapId) : null, h('span', null, text));
 export const section = (title, ...children) => h('section', { class: 'sect' }, h('h2', { class: 'sech' }, title), ...children);
+// A field of a form in the drawer: its label, then what the person writes or picks.
+export const field = (label, ...children) => h('div', { class: 'dsec' }, h('span', { class: 'dl' }, label), ...children);
 export const skeleton = () => h('div', { class: 'skel', 'aria-busy': 'true' }, h('div', { class: 'sk sk-a' }), h('div', { class: 'sk sk-b' }), h('div', { class: 'sk sk-c' }));
 
 // A measure row: label, value (with a badge or a gap), and a bar with its caption.

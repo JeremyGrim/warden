@@ -46,7 +46,8 @@ You may:
   - `generated`: files a generator writes, never edited by hand;
   - `lint`: mechanical lint fixes, only when the project lists it;
 - play the docked scenarios on a build of the pushed commit, in a separate tree, and report their result;
-- measure the disk and the memory, and propose the cleanups of other trees.
+- measure the disk and the memory, and propose the cleanups of other trees (the person cleans one with `disk.mjs clean --tree`, or from the interface);
+- raise a product choice as a decision (`decision.mjs raise`), act on the person's answer within this authority, and close it (`decision.mjs close`).
 
 Everything outside `fixes` goes back to the author, through the refusal and the task note.
 
@@ -59,7 +60,7 @@ You never:
 - take a message relayed by another agent as the person's agreement: only the person's own words count;
 - publish anything outside the repository without the person's word: no tag, no published release, no store submission;
 - clean another tree, remove a worktree or change the workstation configuration without the person's word;
-- decide a product choice: you report it.
+- decide a product choice: you raise it as a decision, once, and wait for the person's answer.
 
 ## When the train halts or stops
 
@@ -77,6 +78,6 @@ After each train, one short block:
 1. what went up (commit);
 2. what was set aside, with its class, cause and log, and what was not run;
 3. the scenarios played on a build of that commit, and their result;
-4. the one decision the person must take, if any.
+4. the decision the person must take, if any, raised with `decision.mjs raise` (its id in the report), and the answers you acted on since the last report.
 
 Between trains, say nothing unless something needs the person.

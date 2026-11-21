@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.4 - 2026-11-21
+
+The four gaps the interface named are filled.
+
+### Added
+
+- **The decisions of the factory** (`decision.mjs`): a product choice the factory may not take is raised once, as a title, a question, a few options and a file of the work folder for context, in `.work/decisions/`. The person answers it from the interface or with `decision.mjs answer` (an option, a note, or both); the factory acts on the answer within its authority and closes it with what it did. `status.mjs` counts them (`decisions`). The factory profile and the `factory-shift` skill say when to raise one.
+- **A change of the project configuration, deposited** (`change.mjs`, `schema.mjs`): `config/factory.json`, `rules.json` and `disk.json` have a shape the kit checks (a wrong type or a missing key blocks; a key the kit does not read is said). `change.mjs deposit` commits the new text on a branch of its own, in a tree of its own made from the remote main branch, under the hooks, and docks it for the train; nothing is pushed, no tree changes branch. The interface checks and deposits from its configuration view.
+- **Cleaning one other tree** (`disk.mjs clean --tree <path>`): one tree of the clone, or of a folder declared with `warden.agentTrees`, and nothing else; never the factory tree, which cleans itself with `--own`. The interface lists then cleans a tree from its health view and from a removable worktree waiting for the person.
+- **The plugin version, seen from the kit**: the plugin's session hook leaves it in the clone's Git folder (`warden-plugin.json`), written when it changes. The interface says a kit behind the plugin, and shows the plugin version beside the kit's.
+
 ## 0.4.3 - 2026-11-21
 
 ### Added

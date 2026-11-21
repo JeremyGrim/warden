@@ -2,15 +2,19 @@
 // The plugin's only hook, at session start. It checks nothing: it only says, in one line, what keeps the project rules
 // from running (inactive Git hooks) or what makes them lag (a kit older than the plugin). When all is well it says
 // nothing: no context cost. It reads neither the conversation nor the tools.
+//
+// It leaves one trace: the plugin version, in the clone's Git folder (`warden-plugin.json`), written when it changes.
+// The interface, served by the kit, reads it there to say a kit behind the plugin (docs/interface.md).
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { resolveLocale } from '../kit/scripts/warden/messages.mjs';
 
 const PLUGIN = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+export const PLUGIN_RECORD = 'warden-plugin.json';
 
 const MESSAGES = {
   en: {
@@ -52,6 +56,12 @@ export function notices({ kit, plugin, hooks, source, locale = 'en' }) {
   return lines;
 }
 
+// The record of the plugin version seen in a clone: the same version keeps the moment it was first seen.
+export function pluginRecord(previous, version, now = new Date().toISOString()) {
+  if (!version) return null;
+  return previous?.version === version ? null : { version, since: now };
+}
+
 function main() {
   const input = readInput();
   const here = input.cwd || process.cwd();
@@ -68,7 +78,17 @@ function main() {
     }
   };
   const hooks = spawnSync('git', ['config', '--get', 'core.hooksPath'], { cwd: root, encoding: 'utf8', windowsHide: true }).stdout?.trim();
-  const lines = notices({ kit: read(manifest), plugin: read(join(PLUGIN, '.claude-plugin', 'plugin.json')), hooks, source: input.source, locale: resolveLocale() });
+  const plugin = read(join(PLUGIN, '.claude-plugin', 'plugin.json'));
+  const common = spawnSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], { cwd: root, encoding: 'utf8', windowsHide: true }).stdout?.trim();
+  if (common && existsSync(common)) {
+    const record = pluginRecord(read(join(common, PLUGIN_RECORD)), plugin?.version);
+    try {
+      if (record) writeFileSync(join(common, PLUGIN_RECORD), `${JSON.stringify(record, null, 2)}\n`);
+    } catch {
+      // A Git folder that cannot be written keeps only the notices.
+    }
+  }
+  const lines = notices({ kit: read(manifest), plugin, hooks, source: input.source, locale: resolveLocale() });
   for (const line of lines) console.log(line);
 }
 

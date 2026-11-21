@@ -12,7 +12,7 @@ Run it only in the factory tree (`node scripts/warden/status.mjs` shows `Role: f
 1. **State.** Read `node scripts/warden/status.mjs --json`. You need `role` set to `factory`, a clean tree, and a slot that is free or held by this tree.
    - A train left interrupted is recovered by the next train when its process is gone. If the tree is not clean otherwise, run `node scripts/warden/train.mjs recover`. The tree is yours, never product code.
    - Anything else: stop and say why.
-2. **Health**, before any train that builds: `node scripts/warden/disk.mjs guard`. Over budget in your own tree, clean it: `node scripts/warden/disk.mjs clean --own --apply` (add `--deep` only if it is still over). Any other tree is the person's gesture (`/warden:factory-health`). The train checks the memory itself.
+2. **Health**, before any train that builds: `node scripts/warden/disk.mjs guard`. Over budget in your own tree, clean it: `node scripts/warden/disk.mjs clean --own --apply` (add `--deep` only if it is still over). Any other tree is the person's gesture, from the interface or `disk.mjs clean --tree <tree> --apply` (`/warden:factory-health`). The train checks the memory itself.
 3. **Wait.** `node scripts/warden/train.mjs watch` returns as soon as a train is worth leaving. It costs nothing while waiting: run it in the background.
    - Exit code 0: go to the train.
    - Exit code 75: a halt outlived its notice threshold. Say it once, to whoever can act: the person for the memory or a missing tool. A red main branch is already in every agent's status: note it in the shift log. Then `watch` again.
@@ -25,6 +25,15 @@ Run it only in the factory tree (`node scripts/warden/status.mjs` shows `Role: f
    - **Halted** (`_halt.json`, exit code 75): nobody was refused. A red main branch waits for its repair, a deposit like any other; low memory waits for the memory; an incident is tried again. `watch` knows when to leave again. Never stop a process.
 6. **Scenarios.** When the train names scenarios to play, build the pushed commit in a separate tree, never in the train tree: its build is the last trial's, which may be a combination that failed. A worktree or a clone of that exact commit is right. Play the journey with the project's journey tooling, and note the result with the commit on the task. A failure is a finding to report to the person; never revert silently.
 7. **Shift log.** Append one line per train to `.work/factory-log.md`: time, commit, branches that went up, branches set aside and why.
+8. **Decisions.** A product choice you may not take goes to the person once, as a decision, never as free text alone:
+
+   ```bash
+   node scripts/warden/decision.mjs raise --title "<one line>" --question "<what to choose, and why it is theirs>" --option "<first>" --option "<second>" --context train-logs/<log>
+   ```
+
+   - Two to four options when the choice has them; none when the answer is free. `--context` names a file of the work folder (a train log, a refusal) the person opens beside it.
+   - At each round, read the answers: `node scripts/warden/decision.mjs list --answered --json`. Act on each within your authority, then close it with what you did: `node scripts/warden/decision.mjs close <id> --note "<what was done>"`. An answer that asks for more than your authority allows goes back to the person in your report.
+   - A decision still open needs nothing from you: the person sees it in the interface and in every status (`decisions.open`).
 
 ## Stop
 
