@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.2 - 2026-11-21
+
+### Fixed
+
+- **A halt that persists is said.** Each train that met an incident wrote the halt anew, with a new `at` and `noticed: false`. Retried every `train.retry_minutes` (10), a `transient` or `incomplete` halt never reached `train.halt_notice_minutes` (30): a missing tool was never said, and the halt's `at` gave its latest train, not its beginning. The same halt again (same class, reason and step) now keeps when it began and whether it was said; `last` gives the latest train that met it, and the retry counts from it.
+
 ## 0.4.1 - 2026-11-21
 
 Versions now move within the 0.4 line.

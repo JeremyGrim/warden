@@ -97,15 +97,17 @@ The refusal holds while the deposit names the refused commit. Its author fixes, 
 
 ![A halted train blames nobody, is visible to every agent, and resumes by itself when its cause can have changed.](images/11-halts.png)
 
-A halted train blamed nobody. It writes `.work/train-ready/_halt.json`: the class, the cause, the commit of the main branch, the dock as it was, the log. Every agent sees it in `status.mjs`.
+A halted train blamed nobody. It writes `.work/train-ready/_halt.json`: the class, the cause, the commit of the main branch, the dock as it was, the log, when the halt began (`at`), the latest train that met it (`last`), and whether it was said (`noticed`). Every agent sees it in `status.mjs`.
+
+The same halt again, with the same class, reason and step, keeps the moment it began and whether it was said. An incident retried every ten minutes is one halt, not a new one each time.
 
 | Halt | It lifts when |
 |---|---|
 | `baseline`, a red main branch | the main branch moves, or the dock changes: the repair is a deposit like any other |
 | `transient`, memory | the memory free to commit is back above the minimum |
-| `transient`, another incident; `incomplete` | `train.retry_minutes` passed (10), or the dock changed |
+| `transient`, another incident; `incomplete` | `train.retry_minutes` passed since the latest train (10), or the dock changed |
 
-`watch` returns as soon as a train is worth leaving, checking once a minute. Past `train.halt_notice_minutes` (30), it returns once with exit code 75 and the cause, so that whoever can act hears it: the person for the memory or a missing tool, the agents for a red main branch. A train that completes lifts the halt.
+`watch` returns as soon as a train is worth leaving, checking once a minute. Past `train.halt_notice_minutes` (30) since the halt began, it returns once with exit code 75 and the cause, so that whoever can act hears it: the person for the memory or a missing tool, the agents for a red main branch. A train that completes lifts the halt.
 
 ## Scenarios
 

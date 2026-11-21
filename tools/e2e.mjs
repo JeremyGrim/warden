@@ -2,7 +2,7 @@
 // The end-to-end trial of the kit on blank projects: the kit installed, commits refused, pushes verified and refused,
 // the kit tests spared when the kit did not change, a train of branches with one culprit, its structured refusal and
 // its return on a new commit, an incident of the workstation replayed, a red main branch that blames no branch and
-// lifts with its repair, a check that could not run, a patch version bump, a release, an interrupted train recovered, the history, the
+// lifts with its repair, a check that could not run and is said once when it persists, a patch version bump, a release, an interrupted train recovered, the history, the
 // factory role and the status an agent reads when it joins. Nothing is simulated: real repositories, real hooks,
 // Cargo and pnpm. The projects live in a temporary folder removed at the end;
 // the report stays.
@@ -33,10 +33,11 @@ const checks = [];
 let count = 0;
 let currentStep = '';
 
-function run(program, args, cwd) {
+// `timeout`, in milliseconds, for a command that waits by design (`watch`): a trial never hangs on it.
+function run(program, args, cwd, timeout = undefined) {
   const shell = process.platform === 'win32' && ['pnpm', 'npm'].includes(program);
   const line = shell ? [program, ...args].join(' ') : program;
-  const r = spawnSync(line, shell ? [] : args, { cwd, encoding: 'utf8', env: ENV, shell, windowsHide: true, maxBuffer: 1 << 28 });
+  const r = spawnSync(line, shell ? [] : args, { cwd, encoding: 'utf8', env: ENV, shell, windowsHide: true, maxBuffer: 1 << 28, timeout });
   count += 1;
   const text = `${r.stdout ?? ''}${r.stderr ?? ''}`;
   const log = `logs/${String(count).padStart(3, '0')}.txt`;
@@ -417,6 +418,22 @@ async function nodeOnly() {
     check('the slot is given back', r.released);
     const h = history(root);
     check('the history counts the trains, the halts, the guards spared and what was not run', h.integrations === 5 && h.halts.baseline === 1 && h.halts.incomplete === 1 && h.guards.kit_cached > 0 && h.not_run['npm advisories, on the workstation'] > 0 && h.releases === 1, JSON.stringify(h));
+  });
+  await step('B. A check that keeps failing to run is said once, from the moment it began', async () => {
+    const haltFile = join(root, '.work', 'train-ready', '_halt.json');
+    const first = readJson(haltFile);
+    const again = node(root, 'scripts/warden/train.mjs', 'run', '--agent', 'factory');
+    const second = readJson(haltFile);
+    check('the train halts again on the same check', again.status === 75 && second?.class === 'incomplete' && second.step === first?.step, again.log);
+    check('the halt keeps the moment it began, and the latest train moves', second?.at === first?.at && Date.parse(second?.last) > Date.parse(first?.last ?? first?.at), JSON.stringify({ first, second }));
+    // Thirty minutes cannot pass in a trial: the halt is moved back 40 minutes, its latest train left as it is.
+    const moved = new Date(Date.parse(second.at) - 40 * 60000).toISOString();
+    writeFileSync(haltFile, `${JSON.stringify({ ...second, at: moved }, null, 2)}\n`);
+    const watched = run(process.execPath, ['scripts/warden/train.mjs', 'watch'], root, 120000);
+    check('watch says it once, past the threshold since it began (exit 75)', watched.status === 75 && /Halted for 4\d min \(incomplete\)/.test(watched.text) && readJson(haltFile)?.noticed === true, watched.log);
+    const third = node(root, 'scripts/warden/train.mjs', 'run', '--agent', 'factory');
+    const kept = readJson(haltFile);
+    check('a train that halts again keeps it said, and its beginning', third.status === 75 && kept?.noticed === true && kept.at === moved, third.log);
   });
 }
 

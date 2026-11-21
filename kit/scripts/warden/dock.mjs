@@ -100,18 +100,26 @@ export const clearHalt = (dock) => rmSync(join(dock, HALT), { force: true });
 // like any other. Until then a train would replay the same failure, so it does not leave.
 export const haltHolds = (halt, { main, dock }) => Boolean(halt) && halt.class === 'baseline' && halt.main === main && halt.dock === dock;
 
+// The halt a train writes. The same halt again (same class, reason and step) keeps the moment it began and whether it
+// was said: an incident retried every `retry_minutes` would otherwise start over each time, never reach its notice
+// threshold, and never be said (21 November). `last` is the latest train that met it.
+export function continuedHalt(previous, halt, now = new Date().toISOString()) {
+  const same = Boolean(previous) && ['class', 'reason', 'step'].every((key) => (previous[key] ?? null) === (halt[key] ?? null));
+  return { ...halt, at: same ? previous.at : now, last: now, noticed: same && Boolean(previous.noticed) };
+}
+
 // What `watch` does while the train is halted: `go` when a train is worth leaving, `notice` once the halt outlived its
-// notice threshold (said once), `wait` otherwise.
+// notice threshold since it began (said once), `wait` otherwise.
 //   baseline                 a new commit of the main branch, or a change in the dock
 //   memory                   the memory free to commit is back above the train's minimum
-//   any other incident       `retry_minutes` passed, or a change in the dock
+//   any other incident       `retry_minutes` passed since the latest train, or a change in the dock
 export function whileHalted(halt, { main, dock, freeGib = null, now = Date.now(), train }) {
   if (!halt) return 'go';
-  const minutes = (now - Date.parse(halt.at)) / 60000;
+  const since = (moment) => (now - Date.parse(moment)) / 60000;
   let go;
   if (halt.class === 'baseline') go = halt.main !== main || halt.dock !== dock;
   else if (halt.reason === 'memory') go = freeGib === null || freeGib >= train.min_free_memory_gib;
-  else go = minutes >= train.retry_minutes || halt.dock !== dock;
+  else go = since(halt.last ?? halt.at) >= train.retry_minutes || halt.dock !== dock;
   if (go) return 'go';
-  return !halt.noticed && minutes >= train.halt_notice_minutes ? 'notice' : 'wait';
+  return !halt.noticed && since(halt.at) >= train.halt_notice_minutes ? 'notice' : 'wait';
 }

@@ -53,7 +53,7 @@ A killed process or a power cut leaves the tree on the train branch, sometimes i
 - `transient`: the memory is low, or an incident persisted on the main branch alone. `watch` waits for the memory, or for `train.retry_minutes`.
 - `incomplete`: a check the project blocks on could not run. A workstation matter.
 
-`watch` returns once with exit code 75 when a halt outlives `train.halt_notice_minutes`.
+`watch` returns once with exit code 75 when a halt outlives `train.halt_notice_minutes` since it began, however many trains met it since.
 
 ## After the train
 

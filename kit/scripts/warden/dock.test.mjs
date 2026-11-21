@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { clearRefusal, dockKey, haltHolds, isRefused, readDeposit, readDock, readyDeposits, whileHalted, writeRefusal } from './dock.mjs';
+import { clearRefusal, continuedHalt, dockKey, haltHolds, isRefused, readDeposit, readDock, readyDeposits, whileHalted, writeRefusal } from './dock.mjs';
 import { FACTORY_DEFAULTS } from './config.mjs';
 
 const TRAIN = FACTORY_DEFAULTS.train;
@@ -56,4 +56,27 @@ test('watch waits for what can lift the halt, and says it once past the threshol
   const incident = { class: 'transient', dock: 'k', at: new Date(at).toISOString() };
   assert.equal(whileHalted(incident, { dock: 'k', now: minutes(5), train: TRAIN }), 'wait');
   assert.equal(whileHalted(incident, { dock: 'k', now: minutes(11), train: TRAIN }), 'go', 'retry_minutes passed');
+});
+
+test('an incident that outlives its retries keeps its beginning, and is said once past the threshold', () => {
+  const at = Date.UTC(2026, 10, 21, 10, 0);
+  const moment = (n) => new Date(at + n * 60000).toISOString();
+  const missing = { class: 'incomplete', reason: null, step: 'Verification of the changed files', cause: 'npm advisories could not run', dock: 'k' };
+  const first = continuedHalt(null, missing, moment(0));
+  assert.deepEqual([first.at, first.last, first.noticed], [moment(0), moment(0), false]);
+  // Retried every 10 minutes, it halts again on the same step: the beginning stays, the latest train moves.
+  const third = continuedHalt(continuedHalt(first, missing, moment(10)), missing, moment(20));
+  assert.deepEqual([third.at, third.last, third.noticed], [moment(0), moment(20), false]);
+  const now = (n) => at + n * 60000;
+  assert.equal(whileHalted(third, { dock: 'k', now: now(25), train: TRAIN }), 'wait', 'retried 5 minutes ago, begun 25 minutes ago');
+  assert.equal(whileHalted(third, { dock: 'k', now: now(31), train: TRAIN }), 'go', 'retry_minutes passed since the latest train');
+  const fourth = continuedHalt(third, missing, moment(31));
+  assert.equal(whileHalted(fourth, { dock: 'k', now: now(32), train: TRAIN }), 'notice', '30 minutes since it began');
+  const said = continuedHalt({ ...fourth, noticed: true }, missing, moment(42));
+  assert.deepEqual([said.at, said.noticed], [moment(0), true], 'said once, even when it halts again');
+  assert.equal(whileHalted(said, { dock: 'k', now: now(45), train: TRAIN }), 'wait');
+  // Another halt starts over: another step, another class, or the memory.
+  assert.equal(continuedHalt(said, { ...missing, step: 'Build' }, moment(50)).at, moment(50));
+  assert.equal(continuedHalt(said, { ...missing, class: 'transient' }, moment(50)).noticed, false);
+  assert.equal(continuedHalt(said, { ...missing, class: 'transient', reason: 'memory', step: null }, moment(50)).at, moment(50));
 });

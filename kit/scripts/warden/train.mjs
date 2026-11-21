@@ -23,7 +23,7 @@ import { fileURLToPath } from 'node:url';
 
 import { FACTORY_DEFAULTS, readFactory, ROOT, run, runCaptured, stationSetting } from './config.mjs';
 import { freeMemory, stationProcesses } from './disk.mjs';
-import { clearHalt, clearRefusal, dockFolder, dockKey, haltHolds, readDock, readHalt, readyDeposits, whileHalted, writeHalt, writeRefusal } from './dock.mjs';
+import { clearHalt, clearRefusal, continuedHalt, dockFolder, dockKey, haltHolds, readDock, readHalt, readyDeposits, whileHalted, writeHalt, writeRefusal } from './dock.mjs';
 import { appendHistory, historyPath } from './history.mjs';
 import { t } from './messages.mjs';
 import { EXIT_HALTED, EXIT_INCOMPLETE, failureClass, firstError, refusal, transientCause } from './outcome.mjs';
@@ -518,7 +518,7 @@ async function runTrain(argv, factory) {
     setAside();
     // The dock as the next train will read it: the deposits just set aside no longer count in it.
     const aside = new Set(refused.map(({ deposit }) => deposit.name));
-    writeHalt(dock, { ...error.halt, main: mainSha, dock: dockKey(readyList.filter((d) => !aside.has(d.name))), log, at: new Date().toISOString(), noticed: false });
+    writeHalt(dock, continuedHalt(readHalt(dock), { ...error.halt, main: mainSha, dock: dockKey(readyList.filter((d) => !aside.has(d.name))), log }));
     say(t(`train.halt.${halted}`, { branch: main, cause: error.halt.cause }));
     return EXIT_HALTED;
   } finally {
