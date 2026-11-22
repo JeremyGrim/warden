@@ -11,7 +11,7 @@ This repository holds the Warden kit and the Claude Code plugin that installs it
 - A test that creates its own Git repositories imports `git-env.mjs` first, and is listed in `git-env.test.mjs`.
 - A step launched by the kit never passes on a test runner's context (`NODE_TEST_CONTEXT`). A `node --test` that receives it skips everything and reports success.
 - Every tooling rule keeps, in a comment, the incident it came from.
-- After any change to the kit: raise the version in `.claude-plugin/plugin.json` (the only source of the version), then run `node tools/fingerprints.mjs`. The `kit.test.mjs` guard refuses a manifest that lags behind.
+- After any change to the kit: raise the version in `.claude-plugin/plugin.json` (the only source of the version), then run `node tools/fingerprints.mjs`, which also writes the Codex manifest. The `kit.test.mjs` and `codex.test.mjs` guards refuse a manifest that lags behind.
 
 ## The plugin
 

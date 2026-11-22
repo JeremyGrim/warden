@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// The plugin's only hook, at session start. It checks nothing: it only says, in one line, what keeps the project rules
+// The plugin's only hook, at session start, in Claude Code (hooks/hooks.json) and in Codex (hooks/codex-hooks.json,
+// `--host codex`). It checks nothing: it only says, in one line, what keeps the project rules
 // from running (inactive Git hooks) or what makes them lag (a kit older than the plugin). When all is well it says
 // nothing: no context cost. It reads neither the conversation nor the tools.
 //
@@ -19,15 +20,19 @@ export const PLUGIN_RECORD = 'warden-plugin.json';
 const MESSAGES = {
   en: {
     hooks: 'Warden: the Git hooks are inactive in this clone, nothing is checked at commit or push. Turn them on: git config core.hooksPath .githooks',
-    behind: 'Warden: the project kit is {kit}, the plugin {plugin}. The /warden:setup skill updates it.',
-    onboard: 'Warden rules this repository: run /warden:onboard before working.',
+    behind: 'Warden: the project kit is {kit}, the plugin {plugin}. The {setup} skill updates it.',
+    onboard: 'Warden rules this repository: run {onboard} before working.',
   },
   fr: {
     hooks: 'Warden : les crochets Git sont inactifs dans ce clone, rien n’est contrôlé au commit ni au push. Les activer : git config core.hooksPath .githooks',
-    behind: 'Warden : le kit du projet est en {kit}, le plugin en {plugin}. La skill /warden:setup le met à jour.',
-    onboard: 'Warden règle ce dépôt : lancer /warden:onboard avant de travailler.',
+    behind: 'Warden : le kit du projet est en {kit}, le plugin en {plugin}. La skill {setup} le met à jour.',
+    onboard: 'Warden règle ce dépôt : lancer {onboard} avant de travailler.',
   },
 };
+
+// How a skill is named to the agent: a slash command in Claude Code, the skill's own name in Codex (`--host codex`,
+// given by hooks/codex-hooks.json), which lists plugin skills as `warden:<name>`.
+export const skill = (name, host = 'claude') => (host === 'codex' ? `warden:${name}` : `/warden:${name}`);
 
 function readInput() {
   try {
@@ -45,14 +50,16 @@ export function compare(a, b) {
   return 0;
 }
 
-export function notices({ kit, plugin, hooks, source, locale = 'en' }) {
+export function notices({ kit, plugin, hooks, source, locale = 'en', host = 'claude' }) {
   if (!kit) return [];
   const m = MESSAGES[locale] ?? MESSAGES.en;
   const lines = [];
   if (hooks !== '.githooks') lines.push(m.hooks);
-  if (plugin && compare(kit.version, plugin.version) < 0) lines.push(m.behind.replace('{kit}', kit.version).replace('{plugin}', plugin.version));
+  if (plugin && compare(kit.version, plugin.version) < 0) {
+    lines.push(m.behind.replace('{kit}', kit.version).replace('{plugin}', plugin.version).replace('{setup}', skill('setup', host)));
+  }
   // A new session (not a resume or a compaction) is reminded of the onboarding once.
-  if (source === 'startup') lines.push(m.onboard);
+  if (source === 'startup') lines.push(m.onboard.replace('{onboard}', skill('onboard', host)));
   return lines;
 }
 
@@ -88,7 +95,9 @@ function main() {
       // A Git folder that cannot be written keeps only the notices.
     }
   }
-  const lines = notices({ kit: read(manifest), plugin, hooks, source: input.source, locale: resolveLocale() });
+  const at = process.argv.indexOf('--host');
+  const host = at > 0 ? process.argv[at + 1] : 'claude';
+  const lines = notices({ kit: read(manifest), plugin, hooks, source: input.source, locale: resolveLocale(), host });
   for (const line of lines) console.log(line);
 }
 

@@ -1,7 +1,16 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { compare, notices, pluginRecord } from './session-start.mjs';
+import { compare, notices, pluginRecord, skill } from './session-start.mjs';
+
+test('in Codex the notices name the skill as Codex lists it, without the slash of Claude Code', () => {
+  assert.equal(skill('onboard'), '/warden:onboard');
+  assert.equal(skill('onboard', 'codex'), 'warden:onboard');
+  const lines = notices({ kit: { version: '0.1.0' }, plugin: { version: '0.2.0' }, hooks: '.githooks', source: 'startup', locale: 'fr', host: 'codex' });
+  assert.match(lines[0], /La skill warden:setup le met à jour/);
+  assert.match(lines[1], /lancer warden:onboard avant/);
+  assert.ok(lines.every((line) => !line.includes('/warden:')));
+});
 
 test('with no kit in the project, the hook says nothing', () => {
   assert.deepEqual(notices({ kit: null, plugin: { version: '0.2.0' }, hooks: '', source: 'startup' }), []);

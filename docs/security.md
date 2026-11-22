@@ -19,7 +19,7 @@
 
 ## The plugin
 
-- The only hook runs at session start. It reads the project's `kit.json` and `core.hooksPath`, and prints at most three lines. It writes one file, the plugin version, in the clone's Git folder (`warden-plugin.json`), when that version changes.
+- The only hook runs at session start. It reads the project's `kit.json` and `core.hooksPath`, and prints at most three lines. It writes one file, the plugin version, in the clone's Git folder (`warden-plugin.json`), when that version changes. In Codex it is the same script, and it runs only once the person has approved it in Codex: Warden never approves its own hook.
 - There is no hook on tool calls, and nothing is recorded from the session.
 - The factory agent has no authority to change the workstation configuration or to clean the disk without the person's word.
 

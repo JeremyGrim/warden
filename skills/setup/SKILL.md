@@ -7,7 +7,7 @@ description: Installs the Warden kit (Git hooks, rules, push verification, dock 
 
 The kit is copied into the project and committed with it: Git checks, for Claude, Codex, a human or the factory alike. The plugin itself checks nothing. Reply in the person's language.
 
-The installer is `<this skill folder>/../../tools/install.mjs`. The skill folder is given at the top ("Base directory for this skill").
+The installer is `<this skill folder>/../../tools/install.mjs`. The skill folder is the folder of this `SKILL.md`: Claude Code gives it at the top ("Base directory for this skill"), Codex lists it with the skill.
 
 ## Steps
 

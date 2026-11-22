@@ -12,14 +12,15 @@ warden (this repository)
 │   ├── config/                rules.json, factory.json, disk.json, deny.toml (models)
 │   └── AGENTS.md, CLAUDE.md   rule text models, English and French
 ├── tools/                     cli.mjs (npx warden), install.mjs, fingerprints.mjs, e2e.mjs
-├── skills/                    the Claude Code skills
+├── skills/                    the skills, shared by Claude Code and Codex
 ├── agents/factory.md          the factory profile
-├── hooks/                     the session-start hook
-└── .claude-plugin/            plugin.json, marketplace.json
+├── hooks/                     the session-start hook: hooks.json (Claude Code), codex-hooks.json (Codex)
+├── .claude-plugin/            plugin.json (the only source of the version), marketplace.json
+└── .codex-plugin/             plugin.json, written by tools/fingerprints.mjs from the Claude Code one
 ```
 
 1. **The kit** lives in each project. Codex, a human and the factory go through Git, not through Claude Code, so the checks must live where Git runs them.
-2. **The plugin** carries the skills, the factory agent and one session hook. It checks nothing itself.
+2. **The plugin** carries the skills, the factory agent and one session hook. It checks nothing itself. The same repository is a Claude Code plugin and a Codex plugin: Codex reads `.claude-plugin/marketplace.json`, then `.codex-plugin/plugin.json` before the Claude Code manifest. Its own manifest exists for the hook alone: Codex keeps only the `command` of a hook and drops its `args`, so it gets a full command, where it replaces `${PLUGIN_ROOT}` with the plugin folder and which it runs through PowerShell on Windows (`commandWindows`). The agent profile is Claude Code's; in Codex the factory follows the `warden:factory-shift` skill with that profile.
 
 ## The kit
 

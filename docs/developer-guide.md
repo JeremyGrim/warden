@@ -2,7 +2,7 @@
 
 ## Layout
 
-See [Architecture](architecture.md). The kit is under `kit/`, the installer and the trial under `tools/`, and the plugin parts under `skills/`, `agents/`, `hooks/` and `.claude-plugin/`.
+See [Architecture](architecture.md). The kit is under `kit/`, the installer and the trial under `tools/`, and the plugin parts under `skills/`, `agents/`, `hooks/`, `.claude-plugin/` and `.codex-plugin/`.
 
 ## Changing the kit
 
@@ -11,9 +11,10 @@ See [Architecture](architecture.md). The kit is under `kit/`, the installer and 
 3. A test that creates Git repositories imports `./git-env.mjs` first, and is listed in `git-env.test.mjs`.
 4. A step the kit launches goes through `run()` from `config.mjs`. It never inherits `NODE_TEST_CONTEXT`, and Windows `.cmd` programs go through the shell.
 5. Raise the version in `.claude-plugin/plugin.json`, the only source of the version.
-6. Run `node tools/fingerprints.mjs`.
+6. Run `node tools/fingerprints.mjs`. It writes `kit.json` and the Codex manifest, `.codex-plugin/plugin.json`; never edit that one by hand (`codex.test.mjs` refuses one that lags behind).
 7. Run `npm test`, then `node tools/e2e.mjs`.
 8. Run `claude plugin validate .` and `claude plugin validate ./.claude-plugin/marketplace.json`.
+9. On a workstation with Codex, run `node tools/codex-check.mjs [--project <a repository with the kit>]`: Codex installs the plugin in a throwaway home, lists its hook and skills, and the hook is run the way Codex runs it. Exit code 2 says no Codex was found: nothing proven.
 
 ## The end-to-end trial
 

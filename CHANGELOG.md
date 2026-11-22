@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.5 - 2026-11-22
+
+Warden is a Codex plugin as well.
+
+### Added
+
+- **The Codex plugin**: `codex plugin marketplace add JeremyGrim/warden`, then `codex plugin add warden@warden`. Codex reads the marketplace of the repository and gets the same skills (`warden:setup`, `warden:onboard`, ...). Its own manifest, `.codex-plugin/plugin.json`, is written by `tools/fingerprints.mjs` from the Claude Code one, which stays the only source of the version; `codex.test.mjs` refuses one that lags behind.
+- **The session hook in Codex** (`hooks/codex-hooks.json`): Codex keeps only the `command` of a hook and drops its `args`, so the Claude Code form would start a bare `node`. The Codex form is a full command where Codex replaces `${PLUGIN_ROOT}`, safe for the PowerShell that runs `commandWindows`. Its notices name the skills as Codex lists them (`--host codex`). Codex runs it once the person approves it.
+- **`tools/codex-check.mjs`**: the plugin played in a real Codex, in a throwaway Codex home: installed with Codex's own commands, its hook and skills listed by the Codex app server, the hook run the way Codex runs it. No model turn, and the person's Codex configuration is never read or written.
+
+### Changed
+
+- The `setup`, `factory-setup` and `onboard` skills say where Codex differs: where the skill folder is given, and how the factory starts without plugin agents.
+
 ## 0.4.4 - 2026-11-21
 
 The four gaps the interface named are filled.

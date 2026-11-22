@@ -1,0 +1,33 @@
+{
+  "name": "warden",
+  "version": "0.4.5",
+  "description": "Repository rules that Git enforces for every agent and human: rules at commit, scoped verification at push, one push slot, and a merge train driven by a single factory agent. Ships the onboarding, the factory profile and its skills. Nothing is recorded from the session; every check goes through Git.",
+  "author": {
+    "name": "ARKA LABS"
+  },
+  "homepage": "https://github.com/JeremyGrim/warden",
+  "repository": "https://github.com/JeremyGrim/warden",
+  "license": "Apache-2.0",
+  "keywords": [
+    "git",
+    "hooks",
+    "multi-agent",
+    "merge-train",
+    "rules",
+    "verification",
+    "factory"
+  ],
+  "skills": "./skills/",
+  "hooks": "./hooks/codex-hooks.json",
+  "interface": {
+    "displayName": "Warden",
+    "shortDescription": "Repository rules, by Git",
+    "longDescription": "Repository rules that Git enforces for every agent and human: rules at commit, scoped verification at push, one push slot, and a merge train driven by a single factory agent. Ships the onboarding, the factory profile and its skills. Nothing is recorded from the session; every check goes through Git.",
+    "developerName": "ARKA LABS",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Skills",
+      "Lifecycle hooks"
+    ]
+  }
+}
