@@ -41,11 +41,9 @@ In Claude Code:
 /plugin install warden@warden
 ```
 
-The repository is private: Claude Code clones it with the workstation's Git credentials (`gh auth login`, then `gh auth setup-git`).
-
 Then ask the agent to set Warden up in your project. The `/warden:setup` skill installs the kit and adapts its configuration by reading the repository.
 
-Without Claude Code, straight from the repository (npx clones it with the same Git credentials):
+Without Claude Code, straight from the repository:
 
 ```bash
 npx github:JeremyGrim/warden setup <project> --dry-run
