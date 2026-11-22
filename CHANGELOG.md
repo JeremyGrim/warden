@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **Warden is ruled by its own kit**, like any project: `scripts/warden/` (the last released kit) and `config/` at the root, the kit's commit and push hooks, `npm test` declared as the check of the kit, the tools, the session hook and the manifests, the end-to-end trial in `verify.all`, and one version across the Claude Code manifest, the Codex manifest and `kit.json`. After a release, `node tools/install.mjs .` brings it to the new kit.
+
 ## 0.4.7 - 2026-11-23
 
 ### Added

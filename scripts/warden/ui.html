@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="light dark">
+<title>Warden</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='100 87 788 788'%3E%3Cpath fill='%23C70F43' d='M259.4,107.7h469.8c76.7,0,138.8,62.1,138.8,138.8v469.8c0,76.7-62.1,138.8-138.8,138.8H259.4c-76.7,0-138.8-62.1-138.8-138.8V246.5C120.6,169.8,182.8,107.7,259.4,107.7z'/%3E%3Cpath fill='none' stroke='%23FFFFFF' stroke-width='60' stroke-linejoin='round' d='M546.8,272.6L657.6,336.6Q710.1,366.9,710.1,427.5L710.1,555.5Q710.1,616.1,657.6,646.4L546.8,710.4Q494.3,740.7,441.8,710.4L331.0,646.4Q278.5,616.1,278.5,555.5L278.5,427.5Q278.5,366.9,331.0,336.6L441.8,272.6Q494.3,242.3,546.8,272.6Z'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="ui.css">
+<script type="module" src="ui-app.mjs"></script>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail" id="rail" data-open="0"></aside>
+  <div class="col-main">
+    <header class="top" id="top"></header>
+    <main class="main"><div class="pg" id="page"></div></main>
+  </div>
+</div>
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title" aria-hidden="true">
+  <header class="dh"><b id="drawer-title"></b><button type="button" class="ib" id="drawer-close"></button></header>
+  <div class="db" id="drawer-body"></div>
+  <footer class="df" id="drawer-foot"></footer>
+</aside>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

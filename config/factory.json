@@ -1,0 +1,53 @@
+{
+  "main_branch": "main",
+  "remote": "origin",
+  "work_dir": ".work",
+  "slot": {
+    "name": "push-slot",
+    "log": null
+  },
+  "verify": {
+    "rust": null,
+    "npm_advisories": null,
+    "steps": [
+      {
+        "title": "Warden tests",
+        "when": [
+          "^kit/",
+          "^tools/",
+          "^hooks/",
+          "^package\\.json$",
+          "^\\.claude-plugin/",
+          "^\\.codex-plugin/"
+        ],
+        "command": [
+          "npm",
+          "test"
+        ]
+      }
+    ],
+    "all": [
+      {
+        "title": "End-to-end trial",
+        "command": [
+          "node",
+          "tools/e2e.mjs"
+        ]
+      }
+    ]
+  },
+  "train": {
+    "branch": "warden-train",
+    "dock": "train-ready",
+    "max_batch": 4,
+    "install": null,
+    "build": null,
+    "min_free_memory_gib": 8,
+    "memory_per_job_gib": 2
+  },
+  "fixes": [
+    "version",
+    "lock",
+    "generated"
+  ]
+}

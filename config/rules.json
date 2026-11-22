@@ -1,0 +1,148 @@
+{
+  "root": {
+    "dirs": [
+      "docs",
+      "config",
+      "scripts",
+      ".githooks",
+      ".claude-plugin",
+      ".codex-plugin",
+      "agents",
+      "hooks",
+      "kit",
+      "skills",
+      "tools"
+    ],
+    "files": [
+      "README.md",
+      "AGENTS.md",
+      "CLAUDE.md",
+      ".gitignore",
+      ".gitattributes",
+      ".editorconfig",
+      "CHANGELOG.md",
+      "LICENSE",
+      "SECURITY.md",
+      "package.json"
+    ]
+  },
+  "required": [
+    "README.md",
+    "AGENTS.md",
+    "CLAUDE.md"
+  ],
+  "max_lines": 700,
+  "warn_lines": 650,
+  "lines_exempt": [
+    "Cargo.lock",
+    "pnpm-lock.yaml"
+  ],
+  "max_size_kib": 512,
+  "size_exceptions": {
+    "Cargo.lock": 2048,
+    "pnpm-lock.yaml": 2048
+  },
+  "forbidden_segments": [
+    "target",
+    "node_modules",
+    "dist",
+    "build",
+    "out",
+    "outputs",
+    "artifacts",
+    "coverage",
+    "tmp",
+    "temp",
+    ".input",
+    ".work",
+    ".cache"
+  ],
+  "forbidden_extensions": [
+    ".exe",
+    ".dll",
+    ".so",
+    ".dylib",
+    ".pdb",
+    ".rlib",
+    ".rmeta",
+    ".zip",
+    ".7z",
+    ".tar",
+    ".gz",
+    ".tgz",
+    ".rar",
+    ".pdf",
+    ".docx",
+    ".pptx",
+    ".xlsx",
+    ".mp4",
+    ".mov",
+    ".webm",
+    ".log",
+    ".sqlite",
+    ".sqlite3",
+    ".db",
+    ".bin"
+  ],
+  "forbidden_lockfiles": [
+    "package-lock.json",
+    "yarn.lock",
+    "bun.lockb",
+    "bun.lock"
+  ],
+  "single_source": {
+    "file": "CLAUDE.md",
+    "points_to": "AGENTS.md",
+    "max_lines": 3
+  },
+  "secrets": [
+    {
+      "name": "private key",
+      "pattern": "-----BEGIN [A-Z ]*PRIVATE KEY-----"
+    },
+    {
+      "name": "GitHub token",
+      "pattern": "\\b(ghp|gho|ghs|ghu)_[A-Za-z0-9]{36}\\b|\\bgithub_pat_[A-Za-z0-9_]{40,}\\b"
+    },
+    {
+      "name": "Anthropic key",
+      "pattern": "\\bsk-ant-[A-Za-z0-9_-]{20,}\\b"
+    },
+    {
+      "name": "OpenAI key",
+      "pattern": "\\bsk-(proj-)?[A-Za-z0-9]{32,}\\b"
+    },
+    {
+      "name": "AWS key",
+      "pattern": "\\bAKIA[0-9A-Z]{16}\\b"
+    },
+    {
+      "name": "Slack token",
+      "pattern": "\\bxox[baprs]-[A-Za-z0-9-]{10,}\\b"
+    },
+    {
+      "name": "machine path",
+      "pattern": "\\b[A-Za-z]:[\\\\/]+Users[\\\\/]+(?![\\\\/])(?!person(?![\\w.-]))[^\\s\"'`]+|/home/(?!person/)[a-z][a-z0-9_-]+/|/Users/(?!person/)[A-Za-z][A-Za-z0-9._-]+/"
+    }
+  ],
+  "secret_exceptions": {
+    "docs/rationale.md": {
+      "machine path": "the incident of 20 November, shown with an ellipsis in place of a user name"
+    }
+  },
+  "foreign_code": {},
+  "versions": [
+    {
+      "file": ".claude-plugin/plugin.json",
+      "read": "json:version"
+    },
+    {
+      "file": ".codex-plugin/plugin.json",
+      "read": "json:version"
+    },
+    {
+      "file": "kit/scripts/warden/kit.json",
+      "read": "json:version"
+    }
+  ]
+}

@@ -14,7 +14,8 @@ See [Architecture](architecture.md). The kit is under `kit/`, the installer and 
 6. Run `node tools/fingerprints.mjs`. It writes `kit.json` and the Codex manifest, `.codex-plugin/plugin.json`; never edit that one by hand (`codex.test.mjs` refuses one that lags behind).
 7. Run `npm test`, then `node tools/e2e.mjs`.
 8. Run `claude plugin validate .` and `claude plugin validate ./.claude-plugin/marketplace.json`.
-9. On a workstation with Codex, run `node tools/codex-check.mjs [--project <a repository with the kit>]`: Codex installs the plugin in a throwaway home, lists its hook and skills, and the hook is run the way Codex runs it. Exit code 2 says no Codex was found: nothing proven.
+9. Once the version is pushed, run `node tools/install.mjs .`: this repository is ruled by its own kit (`scripts/warden/`, `config/`), which follows each release.
+10. On a workstation with Codex, run `node tools/codex-check.mjs [--project <a repository with the kit>]`: Codex installs the plugin in a throwaway home, lists its hook and skills, and the hook is run the way Codex runs it. Exit code 2 says no Codex was found: nothing proven.
 
 ## The end-to-end trial
 

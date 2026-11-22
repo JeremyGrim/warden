@@ -1,0 +1,3 @@
+#!/bin/sh
+# The rules on what is about to be committed, read from the index.
+exec node scripts/warden/rules.mjs --staged

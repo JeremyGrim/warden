@@ -20,6 +20,19 @@ This repository holds the Warden kit and the Claude Code plugin that installs it
 - The factory agent has no authority beyond the train, its own tree and its releases: no product code, no workstation change, no cleanup of another tree and no publication without the person's word.
 - No person is a relay for an ordinary unblocking: a result the rules can classify says what comes next by itself.
 
+## Ruled by its own kit
+
+This repository is ruled by Warden like any project. `scripts/warden/` is the last released kit, copied by `node tools/install.mjs .`; `config/` says what belongs to this repository. `git config core.hooksPath .githooks` turns the hooks on. Rules marked **[checked]** block, at commit and at push.
+
+- **[checked]** The root is closed: only what `config/rules.json` lists.
+- **[checked]** No build, log, archive, database or PDF; a file over 512 KiB needs a named exception. The images of `docs/images/` and the two fonts of the interface are the only binaries.
+- **[checked]** 700 lines at most per file; past 650, the commit warns.
+- **[checked]** No secret, no machine path. An exception names its file, its kind and its reason (`secret_exceptions`).
+- **[checked]** `AGENTS.md` is the only source of rules; `CLAUDE.md` only points to it.
+- **[checked]** The Claude Code manifest, the Codex manifest and `kit.json` state one version.
+- **[checked]** The push runs the rules, the script guards, then `verify.mjs push`: `npm test` when the kit, the tools, the session hook or the manifests change. `node scripts/warden/verify.mjs all` adds the end-to-end trial.
+- `scripts/warden/` is never edited by hand: its fingerprints refuse it. After a release, `node tools/install.mjs .` brings it to the new kit.
+
 ## The repository
 
 - 700 lines at most per file. Code, documentation and skills are in English; the French catalogs (`messages*.fr.mjs`) and the French models (`*.fr.md`) are the only French files.

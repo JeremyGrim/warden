@@ -11,6 +11,7 @@ warden (this repository)
 │   ├── .githooks/             pre-commit, pre-push (models)
 │   ├── config/                rules.json, factory.json, disk.json, deny.toml (models)
 │   └── AGENTS.md, CLAUDE.md   rule text models, English and French
+├── scripts/warden/, config/   this repository's own kit, the last released one, and what belongs to it
 ├── tools/                     cli.mjs (npx warden), install.mjs, fingerprints.mjs, e2e.mjs
 ├── skills/                    the skills, shared by Claude Code and Codex
 ├── agents/factory.md          the factory profile
