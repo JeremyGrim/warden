@@ -1,6 +1,6 @@
 # Warden
 
-[![Version](https://img.shields.io/badge/version-0.4.5-c71244)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.4.6-c71244)](CHANGELOG.md)
 [![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-d97757)](https://code.claude.com/docs/en/plugins/overview)
 [![Codex plugin](https://img.shields.io/badge/Codex-plugin-412991)](#install)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22-339933.svg?logo=node.js&logoColor=white)](https://nodejs.org/)
@@ -51,7 +51,7 @@ codex plugin marketplace add JeremyGrim/warden
 codex plugin add warden@warden
 ```
 
-Codex gets the same skills, listed as `warden:setup`, `warden:onboard` and so on, and the same session hook. Codex runs a plugin hook only once the person approves it in its Hooks settings; until then the skills work and the session notice stays silent. `node tools/codex-check.mjs` plays the plugin in a throwaway Codex home, without reading or writing the person's Codex configuration.
+Codex gets the same skills and the same session hook. Codex has no plugin commands: it turns them into skills, called with `$` (`$warden:setup`, `$warden:onboard` and so on) or by asking in plain words. Codex runs a plugin hook only once the person approves it in its Hooks settings; until then the skills work and the session notice stays silent. `node tools/codex-check.mjs` plays the plugin in a throwaway Codex home, without reading or writing the person's Codex configuration.
 
 Without a plugin, straight from the repository:
 
@@ -70,7 +70,7 @@ The installer copies `scripts/warden/` as is, with its fingerprint manifest. It 
 /warden:onboard
 ```
 
-In Codex, ask for the `warden:onboard` skill. The onboarding reads the real state instead of guessing it: the kit version, the hooks, the role of this tree (agent or factory), the branch, the dock and the agent's own deposits. It then reads `AGENTS.md` and names the next gesture. A new session is reminded of it by the plugin's only hook.
+In Codex: `$warden:onboard`. The onboarding reads the real state instead of guessing it: the kit version, the hooks, the role of this tree (agent or factory), the branch, the dock and the agent's own deposits. It then reads `AGENTS.md` and names the next gesture. A new session is reminded of it by the plugin's only hook.
 
 ```bash
 node scripts/warden/status.mjs --agent <session> --json

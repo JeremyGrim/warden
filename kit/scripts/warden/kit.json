@@ -1,6 +1,6 @@
 {
   "name": "warden",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "files": {
     "boundaries.mjs": "ac0bb3b71d606dbb131b63c513edf832b8fa262ad49b234fe016184861b7fb91",
     "change.mjs": "ffff1259560fa709f6380447ce46df6f7b51069b17860a38056efeb32c837180",

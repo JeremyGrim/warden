@@ -30,9 +30,9 @@ const MESSAGES = {
   },
 };
 
-// How a skill is named to the agent: a slash command in Claude Code, the skill's own name in Codex (`--host codex`,
-// given by hooks/codex-hooks.json), which lists plugin skills as `warden:<name>`.
-export const skill = (name, host = 'claude') => (host === 'codex' ? `warden:${name}` : `/warden:${name}`);
+// How a skill is called: a slash command in Claude Code, a `$` mention in Codex (`--host codex`, given by
+// hooks/codex-hooks.json), which turns plugin commands into skills and lists them as `warden:<name>`.
+export const skill = (name, host = 'claude') => (host === 'codex' ? `$warden:${name}` : `/warden:${name}`);
 
 function readInput() {
   try {

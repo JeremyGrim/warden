@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.6 - 2026-11-22
+
+### Changed
+
+- In Codex, the session notices call the skills as Codex does, with `$` (`$warden:onboard`, `$warden:setup`): Codex has no plugin commands and turns them into skills. The README, the architecture page and the `onboard` and `factory-setup` skills say the same.
+
 ## 0.4.5 - 2026-11-22
 
 Warden is a Codex plugin as well.

@@ -91,4 +91,4 @@ If the person uses one: `git config warden.tasks <path or command>` (see `/warde
 - `node scripts/warden/train.mjs run --dry-run` stacks the docked branches and pushes nothing.
 - `node scripts/warden/disk.mjs report` shows the shared cache and its ceiling.
 
-Then start the factory itself: `claude --agent warden:factory` in the factory tree. In Codex, which has no plugin agents, open a session in the factory tree and have it follow the profile `<this skill folder>/../../agents/factory.md` and the `warden:factory-shift` skill.
+Then start the factory itself: `claude --agent warden:factory` in the factory tree. In Codex, which has no plugin agents, open a session in the factory tree and have it follow the profile `<this skill folder>/../../agents/factory.md` and the `$warden:factory-shift` skill.

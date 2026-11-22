@@ -97,7 +97,7 @@ try {
     const shell = process.platform === 'win32' ? ['pwsh', ['-NoProfile', '-Command', hook.command]] : ['sh', ['-c', hook.command]];
     const ran = spawnSync(shell[0], shell[1], { input, cwd: project, encoding: 'utf8', windowsHide: true });
     check(`the hook runs as Codex runs it (${shell[0]})`, ran.status === 0, (ran.stdout || ran.stderr || '').trim().split('\n')[0] ?? '');
-    if (ran.stdout?.trim()) check('its notices name the skills as Codex does', !ran.stdout.includes('/warden:'), ran.stdout.trim().split('\n').at(-1));
+    if (ran.stdout?.trim()) check('its notices call the skills with $, as Codex does', ran.stdout.includes('$warden:') && !ran.stdout.includes('/warden:'), ran.stdout.trim().split('\n').at(-1));
   }
   console.log(`Trust is the person's: Codex runs the hook once approved (trustStatus: ${hook?.trustStatus ?? 'unknown'}).`);
 } finally {

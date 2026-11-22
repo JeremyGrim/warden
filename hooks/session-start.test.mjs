@@ -3,12 +3,12 @@ import { test } from 'node:test';
 
 import { compare, notices, pluginRecord, skill } from './session-start.mjs';
 
-test('in Codex the notices name the skill as Codex lists it, without the slash of Claude Code', () => {
+test('in Codex the notices call the skill with $, as Codex does, never with the slash of Claude Code', () => {
   assert.equal(skill('onboard'), '/warden:onboard');
-  assert.equal(skill('onboard', 'codex'), 'warden:onboard');
+  assert.equal(skill('onboard', 'codex'), '$warden:onboard');
   const lines = notices({ kit: { version: '0.1.0' }, plugin: { version: '0.2.0' }, hooks: '.githooks', source: 'startup', locale: 'fr', host: 'codex' });
-  assert.match(lines[0], /La skill warden:setup le met à jour/);
-  assert.match(lines[1], /lancer warden:onboard avant/);
+  assert.match(lines[0], /La skill \$warden:setup le met à jour/);
+  assert.match(lines[1], /lancer \$warden:onboard avant/);
   assert.ok(lines.every((line) => !line.includes('/warden:')));
 });
 

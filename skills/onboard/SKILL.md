@@ -27,7 +27,7 @@ Read `AGENTS.md` in full. It is the only source of rules. `CLAUDE.md` only point
 - **Hooks off** (`hooks_active: false`): nothing is checked at commit or push in this clone. Say it, and turn them on with `git config core.hooksPath .githooks`. That is the repository's own setting, local to this clone.
 - **Identity**: deposits and task notes carry a name. Use the session name the person gave. If there is none, ask once.
 - **Role**:
-  - `factory`: this tree runs the train. Work as the factory: start the `warden:factory` agent (`claude --agent warden:factory`), or follow `/warden:factory-shift` (in Codex, the `warden:factory-shift` skill). Never work as an agent in this tree.
+  - `factory`: this tree runs the train. Work as the factory: start the `warden:factory` agent (`claude --agent warden:factory`), or follow `/warden:factory-shift` (in Codex, `$warden:factory-shift`). Never work as an agent in this tree.
   - `agent`: work on a branch of your own, never on the main branch, and dock it when it is ready (`/warden:dock`).
   - `unset`: no factory is declared for this workstation. Ask the person once whether this session is an agent or the factory. Never decide it alone.
 

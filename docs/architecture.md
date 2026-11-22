@@ -20,7 +20,7 @@ warden (this repository)
 ```
 
 1. **The kit** lives in each project. Codex, a human and the factory go through Git, not through Claude Code, so the checks must live where Git runs them.
-2. **The plugin** carries the skills, the factory agent and one session hook. It checks nothing itself. The same repository is a Claude Code plugin and a Codex plugin: Codex reads `.claude-plugin/marketplace.json`, then `.codex-plugin/plugin.json` before the Claude Code manifest. Its own manifest exists for the hook alone: Codex keeps only the `command` of a hook and drops its `args`, so it gets a full command, where it replaces `${PLUGIN_ROOT}` with the plugin folder and which it runs through PowerShell on Windows (`commandWindows`). The agent profile is Claude Code's; in Codex the factory follows the `warden:factory-shift` skill with that profile.
+2. **The plugin** carries the skills, the factory agent and one session hook. It checks nothing itself. The same repository is a Claude Code plugin and a Codex plugin: Codex reads `.claude-plugin/marketplace.json`, then `.codex-plugin/plugin.json` before the Claude Code manifest. Its own manifest exists for the hook alone: Codex keeps only the `command` of a hook and drops its `args`, so it gets a full command, where it replaces `${PLUGIN_ROOT}` with the plugin folder and which it runs through PowerShell on Windows (`commandWindows`). Codex has no plugin commands or agents: the skills are called with `$` (`$warden:onboard`), and the factory follows `$warden:factory-shift` with the profile of `agents/factory.md`.
 
 ## The kit
 
