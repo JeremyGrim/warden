@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.7 - 2026-11-23
+
+### Added
+
+- **The rules in the interface's health**: a fourth view, Rules, names each file the commit hook would refuse (over the line ceiling, a secret, a forbidden file or lockfile) or warn of (near the ceiling), with what is found, over the whole working tree, uncommitted files included. Before, the page did not show them, and `rules.mjs` only counted the warnings. It is read on that view only, every minute, since it reads every file.
+- **`rules.mjs --json`**: the files read, the line ceiling and its warning threshold, every finding and every warning, as JSON; exit code 1 when there is a finding, as without `--json`.
+
+### Changed
+
+- **The interface wears the mark of ARKA LABS**, as its other products: the crimson tile with its white hexagon, and `Warden.` in Poppins Black with a crimson point; the page titles are in Poppins SemiBold. The two weights travel in the kit (`ui-poppins-600.woff2`, `ui-poppins-900.woff2`, under the SIL Open Font License, `ui-poppins-OFL.txt`) and the page serves them itself: still nothing loaded from outside (`font-src 'self'`).
+
 ## 0.4.6 - 2026-11-22
 
 ### Changed

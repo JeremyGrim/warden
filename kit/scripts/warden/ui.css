@@ -13,8 +13,15 @@
   --blame-bg: #F1E4E7; --blame: #8A3D5C; --blame-dot: #C70F43;
   --ln: 28, 27, 25; --sh: 28, 27, 25; --wh: 255, 255, 255;
   --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-title: "Warden Poppins", Poppins, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, Menlo, monospace;
+  --mark: #C70F43;
 }
+
+/* Poppins (SIL Open Font License 1.1, ui-poppins-OFL.txt), served by the page itself like the rest: the mark of
+   ARKA LABS and the page titles, as in its other products. */
+@font-face { font-family: "Warden Poppins"; font-style: normal; font-weight: 600; font-display: swap; src: url(ui-poppins-600.woff2) format("woff2"); }
+@font-face { font-family: "Warden Poppins"; font-style: normal; font-weight: 900; font-display: swap; src: url(ui-poppins-900.woff2) format("woff2"); }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
@@ -60,7 +67,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .shell { display: flex; height: 100vh; min-height: 560px; }
 .rail { flex: 0 0 272px; width: 272px; display: flex; flex-direction: column; gap: 14px; padding: 10px 12px 12px; overflow: hidden; background: var(--bg); }
 .brand { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 8px; }
-.brand .lab { flex: 1; font-weight: 800; font-size: 17px; letter-spacing: -.03em; }
+.brand .lab { flex: 1; font-family: var(--font-title); font-weight: 900; font-size: 17px; letter-spacing: -.035em; }
+.brand .point { color: var(--mark); }
 .brand .ver { font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
 .navs { display: flex; flex-direction: column; gap: 2px; }
 .nav { display: flex; align-items: center; gap: 12px; width: 100%; height: 40px; padding: 0 12px; border: 0; border-radius: 10px; background: transparent; font-size: 14px; font-weight: 500; color: var(--text-4); cursor: pointer; text-align: left; transition: color 160ms, background 160ms; }
@@ -101,7 +109,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .pgi { max-width: 1180px; padding: 30px 36px 64px; display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: 18px; }
 .pgh { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
 .pghl { flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
-.pgt { margin: 0; font-size: 28px; line-height: 1.15; font-weight: 650; letter-spacing: -.02em; overflow-wrap: anywhere; }
+.pgt { margin: 0; font-family: var(--font-title); font-size: 28px; line-height: 1.15; font-weight: 600; letter-spacing: -.02em; overflow-wrap: anywhere; }
 .pgmeta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 13px; color: var(--text-4); }
 .pgmeta .mono { overflow-wrap: anywhere; }
 .sech { margin: 0; font-size: 15px; font-weight: 600; }

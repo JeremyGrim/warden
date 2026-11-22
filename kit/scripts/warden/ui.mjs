@@ -31,10 +31,11 @@ const STATE = 'warden-ui.json';
 const PLUGIN_RECORD = 'warden-plugin.json';
 const CONTENT_MAX = 256 * 1024;
 // The page's own files, served from the kit folder: never the server, never a guard.
-const STATIC = /^ui\.(html|css)$|^ui-[a-z]+\.mjs$/;
-const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8' };
+// The page, its scripts, and the two Poppins weights it carries (ui-poppins-OFL.txt): nothing else of the kit is served.
+const STATIC = /^ui\.(html|css)$|^ui-[a-z]+\.mjs$|^ui-poppins-(600|900)\.woff2$/;
+const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.woff2': 'font/woff2' };
 const HEADERS = {
-  'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+  'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'no-referrer',
   'Cache-Control': 'no-store',
@@ -167,7 +168,7 @@ export function absentData(version) {
   const before = (v) => compareVersions(version, v) < 0;
   return {
     history: before('0.4.0'), refusals: before('0.4.0'), releases: before('0.4.0'), version: before('0.4.1'), disk: before('0.4.3'), live_train: before('0.4.3'),
-    decisions: before('0.4.4'), clean_tree: before('0.4.4'), config_change: before('0.4.4'),
+    decisions: before('0.4.4'), clean_tree: before('0.4.4'), config_change: before('0.4.4'), rules: before('0.4.7'),
   };
 }
 
@@ -424,6 +425,11 @@ export async function startServer({ port = 0, here = mainRoot(ROOT), listed = ()
       if (!project.ok || project.absent.disk) return send(res, 200, null);
       if (url.searchParams.get('full') !== '1') return send(res, 200, await quickDisk(project));
       return send(res, 200, await kitJson(project.path, 'disk.mjs', ['report', '--json']));
+    }
+    // The rules over the whole working tree, uncommitted files included: each file that breaks or nears a rule.
+    if (route === 'GET /api/rules') {
+      if (!project.ok || project.absent.rules) return send(res, 200, null);
+      return send(res, 200, await kitJson(project.path, 'rules.mjs', ['--json'], { anyCode: true }));
     }
     // A configuration text checked by the project's own kit (change.mjs check): nothing is written.
     if (route === 'POST /api/check') {

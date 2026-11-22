@@ -1,6 +1,6 @@
 # Warden
 
-[![Version](https://img.shields.io/badge/version-0.4.6-c71244)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.4.7-c71244)](CHANGELOG.md)
 [![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-d97757)](https://code.claude.com/docs/en/plugins/overview)
 [![Codex plugin](https://img.shields.io/badge/Codex-plugin-412991)](#install)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22-339933.svg?logo=node.js&logoColor=white)](https://nodejs.org/)

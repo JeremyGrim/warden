@@ -2,11 +2,12 @@
 import './git-env.mjs';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { request } from 'node:http';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import { absentData, casesFor, compareVersions, gestureCommand, newestSeen, parseDeposit, projectEntries, startServer, workFile } from './ui.mjs';
 
@@ -19,10 +20,21 @@ test('versions compare part by part, and the kit version says what a project can
   assert.equal(compareVersions('0.4.10', '0.4.9'), 1);
   assert.equal(compareVersions('0.3.0', '0.4.0'), -1);
   assert.equal(compareVersions('0.4.3', '0.4.3'), 0);
-  assert.deepEqual(absentData('0.3.0'), { history: true, refusals: true, releases: true, version: true, disk: true, live_train: true, decisions: true, clean_tree: true, config_change: true });
+  assert.deepEqual(absentData('0.3.0'), { history: true, refusals: true, releases: true, version: true, disk: true, live_train: true, decisions: true, clean_tree: true, config_change: true, rules: true });
   assert.equal(absentData('0.4.1').version, false);
   assert.equal(absentData('0.4.2').disk, true);
   assert.deepEqual([absentData('0.4.3').decisions, absentData('0.4.4').decisions, absentData('0.4.4').config_change], [true, false, false]);
+  assert.deepEqual([absentData('0.4.6').rules, absentData('0.4.7').rules], [true, false]);
+});
+
+// The page modules run in the browser only: no other guard loads them. A name imported and declared again in one of
+// them stopped the whole page (23 November, the mark of the rail).
+test('every module of the page parses', () => {
+  const folder = dirname(fileURLToPath(import.meta.url));
+  for (const file of readdirSync(folder).filter((name) => /^ui-[a-z]+\.mjs$/.test(name))) {
+    const parsed = spawnSync(process.execPath, ['--check', join(folder, file)], { encoding: 'utf8' });
+    assert.equal(parsed.status, 0, `${file}: ${parsed.stderr}`);
+  }
 });
 
 test('the projects are those listed and the one launched from, once each', () => {
@@ -141,6 +153,10 @@ test('the server answers its own page only, with its token, on its own address',
   assert.equal((await call(port, '/ui.mjs')).status, 404, 'never the server itself');
   assert.equal((await call(port, '/ui.test.mjs')).status, 404);
   assert.equal((await call(port, '/../config.mjs')).status, 404);
+  const font = await call(port, '/ui-poppins-900.woff2');
+  assert.deepEqual([font.status, font.headers['content-type']], [200, 'font/woff2'], 'the page serves its own font');
+  assert.match(font.headers['content-security-policy'], /font-src 'self'/);
+  assert.equal((await call(port, '/ui-poppins-OFL.txt')).status, 404, 'the license travels with the kit, the page does not serve it');
   const strings = JSON.parse((await call(port, '/api/strings', { headers: auth })).text);
   assert.ok(Object.keys(strings.strings).every((key) => key.startsWith('ui.')));
   const listing = await call(port, '/api/projects', { headers: auth });
@@ -158,6 +174,8 @@ test('the server answers its own page only, with its token, on its own address',
   assert.equal(deposit.status, 400, 'a workstation file is never deposited');
   const check = await call(port, `/api/check?path=${encodeURIComponent(root)}`, { method: 'POST', headers: json, body: '{"file":"config/disk.json","content":"{}"}' });
   assert.deepEqual(JSON.parse(check.text), { unavailable: true }, 'a project with no kit checks nothing');
+  const rules = await call(port, `/api/rules?path=${encodeURIComponent(root)}`, { headers: auth });
+  assert.deepEqual([rules.status, JSON.parse(rules.text)], [200, null], 'a project with no kit has no rules to read');
 });
 
 test('the workstation list gains and loses a project as it is written, whatever its slashes', async (t) => {

@@ -34,7 +34,7 @@ The page adds and removes them too. Removing a project from the list never touch
 | Projects | Each project: its train, its dock, its slot, its kit and hooks, its last train and how it ended | `status.mjs --json`, `.work/warden-history.jsonl` |
 | Train | The train under way (batch, trial, step), or its halt (every field, what lifts it), or the last train; the slot; the dock: ready, refused, waiting, taken; the decisions of the factory: open, answered, closed | `.work/train-ready/`, `.work/decisions/` |
 | History | Trains, pushes, guards, per deposit, and the measures over 7, 30 or 90 days | `.work/warden-history.jsonl`, `status.mjs --history --json` |
-| Health | Disk against its budgets, trees, memory against the train's minimum; the kit, the plugin, the integrity and the hooks | `disk.mjs report --json`, `kit.json`, the plugin record |
+| Health | Disk against its budgets, trees, memory against the train's minimum; the kit, the plugin, the integrity and the hooks; the rules: each file the commit hook would refuse (a file over the line ceiling, a secret, a forbidden file) or warn of (a file near the ceiling), named, over the whole working tree, uncommitted files included (from the kit 0.4.7) | `disk.mjs report --json`, `kit.json`, the plugin record, `rules.mjs --json` |
 | Version | The version, its line, its manifests; the releases and their artifacts | `version.mjs show --json`, `.work/releases/` |
 | Configuration | The project's configuration, checked and deposited as a change; the workstation settings | `config/*.json`, `git config` |
 
@@ -65,7 +65,7 @@ The page shows the command, the tree it runs in, its output and its exit code. I
 
 - It listens on `127.0.0.1` only, and answers only the names `127.0.0.1` and `localhost` on its port: a site that renames itself to reach it is refused.
 - Its address carries a random token, after `#`; every call gives it back in a header. Another page of the browser cannot read it nor act through it.
-- Its content policy loads nothing from outside: no font, script, image or measure. Nothing leaves the workstation.
+- Its content policy loads nothing from outside: no font, script, image or measure. Its two Poppins weights are files of the kit, served by the page itself (SIL Open Font License, `ui-poppins-OFL.txt`). Nothing leaves the workstation.
 - It reads files of the work folder only, never a path outside it.
 
 ## The plugin version

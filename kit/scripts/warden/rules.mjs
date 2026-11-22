@@ -4,6 +4,7 @@
 //
 //   node scripts/warden/rules.mjs            the whole tree, boundaries included (the pre-push hook)
 //   node scripts/warden/rules.mjs --staged   what is about to be committed (the pre-commit hook)
+//   node scripts/warden/rules.mjs --json     the whole tree, every finding and warning as JSON (the interface's health)
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
@@ -95,6 +96,13 @@ function main(argv) {
   const warnings = [];
   const findings = checkFiles({ files: staged ? files : present, all: present, rules, read, readBefore, warn: (w) => warnings.push(w) });
   if (!staged) findings.push(...boundaries(present, rules, read));
+
+  // Every file named, not only counted: the person sees in the interface which files break or near a rule.
+  if (argv.includes('--json')) {
+    console.log(JSON.stringify({ files: present.length, max_lines: rules.max_lines ?? null, warn_lines: rules.warn_lines ?? null, findings, warnings }));
+    if (findings.length) process.exitCode = 1;
+    return;
+  }
 
   // At commit time, each touched file nearing the ceiling is named; over the whole tree, one line counts them.
   if (staged) for (const { path: p, message } of warnings) console.log(`  [${t('rules.warning')}] ${p}: ${message}`);

@@ -40,6 +40,22 @@ export const ICONS = {
   shield: ['M12 3 5 6v5c0 4.4 3 8.3 7 9.5 4-1.2 7-5.1 7-9.5V6l-7-3Z'],
 };
 
+// The mark of ARKA LABS, the author of Warden: a crimson tile and a white hexagon, as on its other products.
+export function brandMark(size = 22) {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  for (const [key, value] of Object.entries({ viewBox: '100 87 788 788', width: size, height: size, 'aria-hidden': 'true' })) svg.setAttribute(key, String(value));
+  const shapes = [
+    { fill: '#C70F43', d:'M259.4,107.7h469.8c76.7,0,138.8,62.1,138.8,138.8v469.8c0,76.7-62.1,138.8-138.8,138.8H259.4c-76.7,0-138.8-62.1-138.8-138.8V246.5C120.6,169.8,182.8,107.7,259.4,107.7z' },
+    { fill: 'none', stroke: '#FFFFFF', 'stroke-width': '60', 'stroke-linejoin': 'round', d: 'M546.8,272.6L657.6,336.6Q710.1,366.9,710.1,427.5L710.1,555.5Q710.1,616.1,657.6,646.4L546.8,710.4Q494.3,740.7,441.8,710.4L331.0,646.4Q278.5,616.1,278.5,555.5L278.5,427.5Q278.5,366.9,331.0,336.6L441.8,272.6Q494.3,242.3,546.8,272.6Z' },
+  ];
+  for (const shape of shapes) {
+    const path = document.createElementNS(SVG_NS, 'path');
+    for (const [key, value] of Object.entries(shape)) path.setAttribute(key, value);
+    svg.append(path);
+  }
+  return svg;
+}
+
 export function icon(name, size = 18) {
   const svg = document.createElementNS(SVG_NS, 'svg');
   for (const [key, value] of Object.entries({ viewBox: '0 0 24 24', width: size, height: size, fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' })) {

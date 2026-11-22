@@ -5,7 +5,7 @@
 // and every 15 s the projects, and right after a gesture.
 
 import { errorText, get, loadStrings, post, readToken, t } from './ui-api.mjs';
-import { badge, fmtClock, h, icon, keepFocus, samePath } from './ui-dom.mjs';
+import { badge, brandMark, fmtClock, h, icon, keepFocus, samePath } from './ui-dom.mjs';
 import { openFile, openForm, runGesture, runStation, setupDrawer } from './ui-drawer.mjs';
 import { renderInbox } from './ui-inbox.mjs';
 import { projectOf, todoCount, trainState } from './ui-model.mjs';
@@ -23,7 +23,7 @@ const ui = { addOpen: false, addPath: '', armed: null, edits: {}, cfq: '', railO
 const store = {
   projects: null, projectsJson: '', projectsAt: 0, projectsError: null, projectsRun: null,
   detail: null, detailKey: '', detailJson: '', detailAt: 0, detailError: null, detailRun: null,
-  disks: new Map(), readAt: null, refused: false,
+  disks: new Map(), rules: new Map(), readAt: null, refused: false,
 };
 
 // The theme: the system's, or the one the person chose, remembered in this browser.
@@ -62,7 +62,8 @@ function toast(text) {
 
 const detailKeyNow = () => `${state.path}|${state.days}`;
 const onHealth = () => state.view === 'project' && state.tab === 'health';
-const reading = () => Boolean(store.projectsRun || store.detailRun || [...store.disks.values()].some((d) => d.run));
+const onRules = () => onHealth() && (state.sub.health ?? 0) === 3;
+const reading = () => Boolean(store.projectsRun || store.detailRun || [...store.disks.values(), ...store.rules.values()].some((d) => d.run));
 
 // One read at a time per kind; `fresh` waits for the read under way, then reads again (after a gesture).
 async function loadProjects({ fresh = false } = {}) {
@@ -155,8 +156,28 @@ async function loadDisk(path, { fresh = false } = {}) {
   if (onHealth() && samePath(state.path, path)) renderMain();
 }
 
+// The rules over the whole working tree, read on the health tab's Rules view only: rules.mjs reads every file.
+async function loadRules(path, { fresh = false } = {}) {
+  const p = projectOf(store.projects, path);
+  if (!path || (p && (!p.ok || p.absent?.rules))) return;
+  const entry = store.rules.get(path) ?? {};
+  if (entry.run) {
+    if (!fresh) return;
+    await entry.run;
+  }
+  const run = get('/api/rules', { path })
+    .then((data) => (data ? { at: new Date(), data, error: null } : { ...entry, error: t('ui.rules.unreadable') }))
+    .catch((error) => ({ ...entry, error: errorText(error) }));
+  store.rules.set(path, { ...entry, run });
+  renderRail();
+  const result = await run;
+  store.rules.set(path, { ...result, run: null, checked: Date.now() });
+  renderRail();
+  if (onRules() && samePath(state.path, path)) renderMain();
+}
+
 async function rereadAll() {
-  await Promise.all([loadProjects({ fresh: true }), loadDetail({ fresh: true }), onHealth() ? loadDisk(state.path, { fresh: true }) : null]);
+  await Promise.all([loadProjects({ fresh: true }), loadDetail({ fresh: true }), onHealth() ? loadDisk(state.path, { fresh: true }) : null, onRules() ? loadRules(state.path, { fresh: true }) : null]);
 }
 
 // A refused token never becomes valid again (the server was started anew): the page stops reading and says so,
@@ -168,6 +189,8 @@ function tick() {
   if (state.view === 'project' && now - store.detailAt >= VIEW_EVERY) loadDetail();
   const disk = store.disks.get(state.path);
   if (onHealth() && !disk?.run && now - (disk?.checked ?? 0) >= DISK_EVERY) loadDisk(state.path);
+  const rules = store.rules.get(state.path);
+  if (onRules() && !rules?.run && now - (rules?.checked ?? 0) >= DISK_EVERY) loadRules(state.path);
 }
 
 // Moving through the page.
@@ -191,6 +214,7 @@ function go(view, path = null, tab = null, subIndex = null) {
   if (view === 'project') {
     loadDetail();
     if (onHealth() && !store.disks.get(state.path)?.data) loadDisk(state.path);
+    if (onRules() && !store.rules.get(state.path)?.data) loadRules(state.path);
   }
 }
 
@@ -211,6 +235,7 @@ const ctxActions = {
     state.sub[name] = i;
     renderMain();
     if (onHealth() && !store.disks.get(state.path)?.data) loadDisk(state.path);
+    if (onRules() && !store.rules.get(state.path)?.data) loadRules(state.path);
   },
   setDays: (n) => {
     state.days = n;
@@ -256,7 +281,7 @@ function context() {
   const detail = store.detail && store.detailKey.startsWith(`${state.path}|`) ? store.detail : null;
   return {
     ...ctxActions, state, ui, data: store.projects, detail, detailError: detail ? null : store.detailError,
-    project: state.path ? projectOf(store.projects, state.path) : null, disk: store.disks.get(state.path) ?? null,
+    project: state.path ? projectOf(store.projects, state.path) : null, disk: store.disks.get(state.path) ?? null, rules: store.rules.get(state.path) ?? null,
   };
 }
 
@@ -277,7 +302,7 @@ function renderRail() {
   });
   const dark = isDark();
   $('rail').replaceChildren(
-    h('div', { class: 'brand' }, icon('shield', 22), h('span', { class: 'lab' }, 'Warden'), store.projects?.newest_kit ? h('span', { class: 'ver', title: t('ui.kit.newest') }, store.projects.newest_from === 'plugin' ? t('ui.plugin.version', { v: store.projects.newest_kit }) : t('ui.kit.version', { v: store.projects.newest_kit })) : null),
+    h('div', { class: 'brand' }, brandMark(24), h('span', { class: 'lab' }, 'Warden', h('span', { class: 'point' }, '.')), store.projects?.newest_kit ? h('span', { class: 'ver', title: t('ui.kit.newest') }, store.projects.newest_from === 'plugin' ? t('ui.plugin.version', { v: store.projects.newest_kit }) : t('ui.kit.version', { v: store.projects.newest_kit })) : null),
     h('nav', { class: 'navs', 'aria-label': t('ui.rail.nav') }, nav('inbox', t('ui.rail.yours'), 'inbox', cases), nav('projects', t('ui.rail.projects'), 'folder', projects.length)),
     h('div', { class: 'tree' }, h('div', { class: 'treeh' }, t('ui.rail.station')), rows, h('button', { type: 'button', class: 'rlmore', on: { click: () => go('projects') } }, t('ui.rail.all_projects'))),
     h('div', { class: 'railfoot' },

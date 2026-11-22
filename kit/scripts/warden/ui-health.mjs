@@ -1,5 +1,5 @@
-// A project's health (F8, F9): the disk against its budgets, the trees, the memory against the train's threshold, and
-// the kit with its hooks and the plugin. The full disk report walks folders: it is read on this tab only. The factory
+// A project's health (F8, F9): the disk against its budgets, the trees, the memory against the train's threshold, the
+// kit with its hooks and the plugin, and the files off the rules. The full disk report walks folders: it is read on this tab only. The factory
 // cleans its own tree; another tree is the person's, cleaned alone on their gesture, and never removed from here.
 
 import { t } from './ui-api.mjs';
@@ -195,19 +195,54 @@ function kitView(ctx, d) {
   ];
 }
 
+// The rules over the whole working tree (from the kit 0.4.7): each file the commit hook would refuse or warn of, named,
+// uncommitted files included. Read on this tab only: it reads every file.
+function rulesView(ctx, d) {
+  if (d.absent?.rules) return [box(h('div', { class: 'boxr' }, badge('unk', t('ui.absent_title')), absent(d.kit.version)))];
+  const read = ctx.rules;
+  if (!read?.data) {
+    return [read?.error ? box(h('div', { class: 'boxr' }, badge('unk', t('ui.error.title')), h('span', { class: 'grow' }, read.error))) : skeleton(), caption(null, t('ui.rules.walking'))];
+  }
+  const r = read.data;
+  const findings = r.findings ?? [];
+  const warnings = r.warnings ?? [];
+  const rows = [...findings.map((f) => ['finding', f]), ...warnings.map((w) => ['warning', w])];
+  const tone = (kind) => (kind === 'finding' ? 'halt' : 'todo');
+  const label = (kind) => (kind === 'finding' ? t('ui.rules.finding') : t('ui.rules.warning'));
+  return [
+    caption(null, t('ui.rules.read', { at: fmtClock(read.at) })),
+    box(
+      measure(t('ui.rules.files'), t('ui.rules.files_value', { n: fmtNum(r.files ?? 0, 0) })),
+      measure(t('ui.rules.ceiling'), r.max_lines ? t('ui.rules.ceiling_value', { max: r.max_lines, warn: r.warn_lines ?? r.max_lines }) : t('ui.rules.no_ceiling'), { cap: 'config/rules.json' }),
+      measure(t('ui.rules.findings'), findings.length ? t('ui.rules.findings_some', { n: findings.length }) : t('ui.rules.findings_none'), { tone: findings.length ? 'halt' : 'ok', toneLabel: findings.length ? t('ui.rules.finding') : t('ui.rules.respected') }),
+      measure(t('ui.rules.warnings'), warnings.length ? t('ui.rules.warnings_some', { n: warnings.length }) : t('ui.rules.warnings_none'), { tone: warnings.length ? 'todo' : null, toneLabel: t('ui.rules.warning') })),
+    list(`rules:${d.path}`, {
+      title: t('ui.rules.list'), cols: [t('ui.col.state'), t('ui.col.rule'), t('ui.col.file'), t('ui.col.finding')],
+      grid: '150px 110px minmax(0,1.2fr) minmax(0,1.6fr)', minWidth: 820, search: t('ui.rules.search'),
+      strip: [{ id: 'finding', label: t('ui.rules.finding'), tone: 'halt' }, { id: 'warning', label: t('ui.rules.warning'), tone: 'todo' }],
+      stripLabel: t('ui.col.state'), empty: t('ui.rules.empty'), cap: t('ui.rules.cap'),
+      rows: rows.map(([kind, f], i) => ({
+        id: `${kind}:${f.rule}:${f.path}:${i}`, st: kind, search: `${f.path} ${f.rule} ${f.message}`,
+        cells: [cell(null, null, { tone: tone(kind), toneLabel: label(kind) }), cell(f.rule, null, { mono: true }), cell(f.path, null, { mono: true }), cell(f.message)],
+      })),
+    }),
+  ];
+}
+
 export function renderHealth(ctx, d) {
   const sub = ctx.state.sub.health ?? 0;
   const factoryTree = d.status.factory_tree;
   const clean = sub === 0 && !d.absent?.disk ? btn(t('ui.gesture.clean_own'), () => cleanOwn(ctx, d, false), { disabled: !factoryTree, title: factoryTree ? t('ui.clean.own_only') : t('ui.gesture.needs_factory'), fk: 'health:clean' }) : null;
   const out = [subbar({
-    items: [{ label: t('ui.nature.disk') }, { label: t('ui.health.memory') }, { label: t('ui.nature.kit') }],
+    items: [{ label: t('ui.nature.disk') }, { label: t('ui.health.memory') }, { label: t('ui.nature.kit') }, { label: t('ui.health.rules') }],
     current: sub, onPick: (i) => ctx.setSub('health', i),
-    source: sub === 2 ? 'scripts/warden/kit.json · status.mjs --json' : 'disk.mjs report --json',
+    source: sub === 2 ? 'scripts/warden/kit.json · status.mjs --json' : sub === 3 ? 'rules.mjs --json · config/rules.json' : 'disk.mjs report --json',
     actions: [clean],
   })];
   if (sub === 0) out.push(...diskView(ctx, d));
   else if (sub === 1) out.push(...memoryView(ctx, d));
-  else out.push(...kitView(ctx, d));
+  else if (sub === 2) out.push(...kitView(ctx, d));
+  else out.push(...rulesView(ctx, d));
   if (sub === 0 && !factoryTree) out.push(caption(null, t('ui.gesture.needs_factory')));
   return out;
 }

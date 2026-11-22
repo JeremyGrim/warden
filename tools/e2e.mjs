@@ -526,6 +526,16 @@ async function nodeOnly() {
       check('the train takes it up through its checks, like any change', taken.status === 0 && onMain.max_worktrees === 3 && !existsSync(dockFile), taken.log);
       await slotReleased(rust);
 
+      currentStep = 'B. The person sees in the health view the files off the rules';
+      write(root, { 'src/long.mjs': 'export const x = 1;\n'.repeat(701), 'src/near.mjs': 'export const y = 1;\n'.repeat(660) });
+      const rules = await json(`/api/rules?path=${here}`);
+      const named = (items, path) => (items ?? []).some((f) => f.rule === 'lines' && f.path === path && /\d+/.test(f.message));
+      check('each file over the ceiling, and each one near it, is named with its count, uncommitted ones included', rules?.max_lines === 700 && named(rules.findings, 'src/long.mjs') && named(rules.warnings, 'src/near.mjs') && !named(rules.findings, 'src/near.mjs'), JSON.stringify(rules));
+      rmSync(join(root, 'src', 'long.mjs'));
+      rmSync(join(root, 'src', 'near.mjs'));
+      const clean = await json(`/api/rules?path=${here}`);
+      check('once the files are split or gone, they are no longer named', clean?.files > 0 && !named(clean.findings, 'src/long.mjs') && !named(clean.warnings, 'src/near.mjs'), JSON.stringify(clean));
+
       currentStep = 'B. The plugin version is seen by the interface';
       const hook = spawnSync(process.execPath, [join(REPO, 'hooks', 'session-start.mjs')], { input: JSON.stringify({ cwd: root, source: 'resume' }), encoding: 'utf8', env: ENV, windowsHide: true });
       const record = readJson(join(root, '.git', 'warden-plugin.json'));
