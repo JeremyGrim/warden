@@ -16,7 +16,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -27,7 +27,12 @@ const OUTPUT = resolve(argv.includes('--output') ? argv[argv.indexOf('--output')
 const TRAY = mkdtempSync(join(tmpdir(), 'warden-e2e-projects-'));
 const { NODE_TEST_CONTEXT, ...BASE_ENV } = process.env;
 void NODE_TEST_CONTEXT;
-const ENV = { ...BASE_ENV, WARDEN_LOCALE: 'en' };
+// The workstation list the install and the session hook write (warden.projects) goes to a throwaway global
+// configuration, which reads the real one through an include: the trial never lists its projects on the workstation.
+const WORKSTATION = join(TRAY, 'gitconfig-workstation');
+const REAL_GLOBAL = BASE_ENV.GIT_CONFIG_GLOBAL || join(homedir(), '.gitconfig');
+writeFileSync(WORKSTATION, existsSync(REAL_GLOBAL) ? `[include]\n\tpath = ${REAL_GLOBAL.replaceAll('\\', '/')}\n` : '');
+const ENV = { ...BASE_ENV, WARDEN_LOCALE: 'en', GIT_CONFIG_GLOBAL: WORKSTATION, WARDEN_TEST_GLOBAL: WORKSTATION };
 mkdirSync(join(OUTPUT, 'logs'), { recursive: true });
 
 const checks = [];
@@ -103,6 +108,9 @@ function newRepo(name, files) {
   return { root, remote, head: () => run('git', ['--git-dir', remote, 'rev-parse', 'refs/heads/main'], TRAY).text.trim() };
 }
 
+const listedOnWorkstation = (root) => run('git', ['config', '--global', '--get-all', 'warden.projects'], TRAY).text.split(/\r?\n/)
+  .some((p) => p.trim() && resolve(p.trim()).toLowerCase() === resolve(root).toLowerCase());
+
 // The project as it was before the kit: committed and pushed without hooks, then the kit installed and committed.
 async function installKit(project, adapt) {
   const { root } = project;
@@ -112,6 +120,7 @@ async function installKit(project, adapt) {
   // Through the command npx runs (tools/cli.mjs), as whoever installs without the plugin.
   const install = node(root, join(REPO, 'tools', 'cli.mjs'), 'setup', root);
   check('warden setup installs the kit', install.status === 0, install.log);
+  check('the install lists the project on the workstation, by its main root, and says it', listedOnWorkstation(root) && /listed on this workstation/.test(install.text), install.log);
   check('the kit and its models are installed', ['scripts/warden/kit.json', 'config/rules.json', 'config/factory.json', '.githooks/pre-push', 'AGENTS.md'].every((c) => existsSync(join(root, c))));
   adapt?.(root);
   const rules = node(root, 'scripts/warden/rules.mjs');
@@ -555,6 +564,9 @@ async function nodeOnly() {
       const record = readJson(join(root, '.git', 'warden-plugin.json'));
       const seen = (await json('/api/projects')).projects.find((p) => p.here);
       check('the session hook of the plugin leaves its version and its folder in the clone, and the page reads it', hook.status === 0 && record?.version === PLUGIN.version && record.root === REPO && seen.plugin?.version === PLUGIN.version, JSON.stringify(record));
+      run('git', ['config', '--global', '--fixed-value', '--unset-all', 'warden.projects', run('git', ['config', '--global', '--get-all', 'warden.projects'], TRAY).text.split(/\r?\n/).find((p) => p.trim() && resolve(p.trim()).toLowerCase() === resolve(root).toLowerCase())?.trim() ?? root], TRAY);
+      const later = spawnSync(process.execPath, [join(REPO, 'hooks', 'session-start.mjs')], { input: JSON.stringify({ cwd: root, source: 'startup' }), encoding: 'utf8', env: ENV, windowsHide: true });
+      check('a project removed from the workstation list stays removed at the next session', later.status === 0 && !listedOnWorkstation(root), later.stdout);
       // A plugin newer than the kit, with its kit: the record and the folder a later plugin would leave.
       const newer = join(TRAY, 'plugin-9.9.9');
       cpSync(join(REPO, 'kit', 'scripts', 'warden'), join(newer, 'kit', 'scripts', 'warden'), { recursive: true });

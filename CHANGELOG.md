@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.11 - 2026-11-23
+
+A project Warden rules shows on the interface with no gesture.
+
+### Added
+
+- **The install lists the project on the workstation** the interface covers (`git config --global warden.projects`), by its main root, and says it. The plugin's session hook lists, once per clone, a project ruled before: one installed by an earlier kit, or from a tree whose global configuration could not be written. A mark in the clone's Git folder (`warden-listed.json`) keeps off the list a project the person removed from it. Before, only the page's own gesture listed a project: a project just installed did not appear.
+- **A project whose main root still stands on a commit from before the install is read from its factory tree** (`warden.factory`), which follows the main branch: the page says "read from its factory" instead of "kit absent". Its identity stays the main root; the clone settings are still written from it.
+
+### Changed
+
+- The tests and the trial never write the workstation's global configuration: `git-env.mjs` gives their `git config --global` a throwaway file, which reads the real one through an include.
+
 ## 0.4.10 - 2026-11-23
 
 Adopting Warden in a repository that already lives goes through in one pass: what it held before is named as debts, and only what is new refuses.

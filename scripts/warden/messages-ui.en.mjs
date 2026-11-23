@@ -206,6 +206,8 @@ export const UI_EN = {
   'ui.projects.remove_note': 'Removing a project from the list never touches the project: only the workstation list changes.',
   'ui.projects.remove_title': 'Remove a project from the list',
   'ui.projects.here': 'page launched from here',
+  'ui.projects.read_from': 'read from its factory',
+  'ui.projects.read_from_long': 'read from its factory tree, {tree}: the main root does not carry the kit yet',
   'ui.projects.not_listed': 'not in the list',
   'ui.projects.search': 'Search a project',
   'ui.projects.empty': 'No project on this workstation.',

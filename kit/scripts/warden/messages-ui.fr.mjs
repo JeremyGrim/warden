@@ -206,6 +206,8 @@ export const UI_FR = {
   'ui.projects.remove_note': 'Retirer un projet de la liste ne touche jamais au projet : seule la liste du poste change.',
   'ui.projects.remove_title': 'Retirer un projet de la liste',
   'ui.projects.here': 'page lancée d’ici',
+  'ui.projects.read_from': 'lu depuis sa fabrique',
+  'ui.projects.read_from_long': 'lu depuis son arbre de fabrique, {tree} : la racine principale ne porte pas encore le kit',
   'ui.projects.not_listed': 'hors de la liste',
   'ui.projects.search': 'Chercher un projet',
   'ui.projects.empty': 'Aucun projet déclaré sur ce poste.',

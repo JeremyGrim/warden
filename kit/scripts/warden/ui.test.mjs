@@ -5,11 +5,12 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { request } from 'node:http';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { absentData, casesFor, compareVersions, gestureCommand, newestSeen, parseDeposit, projectEntries, startServer, updateSource, workFile } from './ui.mjs';
+import { listOnWorkstation } from './kit.mjs';
+import { absentData, casesFor, compareVersions, gestureCommand, kitTree, newestSeen, parseDeposit, projectEntries, startServer, updateSource, workFile } from './ui.mjs';
 
 const project = (fields = {}) => ({
   ok: true, path: '/p/alpha', kit: { version: '0.4.3' }, releases: [], state: { cases: {}, published: {} },
@@ -225,4 +226,62 @@ test('the workstation list gains and loses a project as it is written, whatever 
   assert.equal(removed.code, 0, removed.output);
   assert.deepEqual(listed(), []);
   assert.ok(existsSync(project), 'the project itself is never touched');
+});
+
+test('a ruled clone lists itself once, by its main root, and a project the person removed stays off the list', (t) => {
+  const tray = mkdtempSync(join(tmpdir(), 'ui-listed-'));
+  const global = join(tray, 'gitconfig');
+  writeFileSync(global, '');
+  const previous = process.env.GIT_CONFIG_GLOBAL;
+  process.env.GIT_CONFIG_GLOBAL = global;
+  t.after(() => {
+    if (previous === undefined) delete process.env.GIT_CONFIG_GLOBAL;
+    else process.env.GIT_CONFIG_GLOBAL = previous;
+    rmSync(tray, { recursive: true, force: true });
+  });
+  const root = join(tray, 'alpha');
+  mkdirSync(root);
+  const git = (cwd, ...args) => spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.test', ...args], { cwd, encoding: 'utf8' });
+  git(root, 'init', '--quiet', '-b', 'main');
+  git(root, 'commit', '--quiet', '--allow-empty', '-m', 'first');
+  const agent = join(tray, 'alpha-agent');
+  git(root, 'worktree', 'add', '--quiet', '-b', 'agent', agent);
+  const listed = () => spawnSync('git', ['config', '--global', '--get-all', 'warden.projects'], { encoding: 'utf8' }).stdout.trim().split(/\r?\n/).filter(Boolean);
+  const same = (a, b) => resolve(a).toLowerCase() === resolve(b).toLowerCase();
+  assert.equal(listOnWorkstation(agent).state, 'listed', 'from a linked tree');
+  assert.deepEqual([listed().length, same(listed()[0], root)], [1, true], 'by its main root');
+  assert.equal(listOnWorkstation(root).state, 'marked', 'once per clone');
+  assert.equal(listed().length, 1);
+  spawnSync('git', ['config', '--global', '--unset-all', 'warden.projects'], { encoding: 'utf8' });
+  assert.equal(listOnWorkstation(agent).state, 'marked');
+  assert.deepEqual(listed(), [], 'removed from the page, it stays removed');
+  const beta = join(tray, 'beta');
+  mkdirSync(beta);
+  git(beta, 'init', '--quiet', '-b', 'main');
+  spawnSync('git', ['config', '--global', '--add', 'warden.projects', beta.replaceAll('\\', '/')], { encoding: 'utf8' });
+  assert.equal(listOnWorkstation(beta).state, 'already', 'listed by hand: marked, never twice');
+  assert.equal(listed().length, 1);
+});
+
+test('a project whose main root predates the install is read from its factory tree, its identity kept', (t) => {
+  const tray = mkdtempSync(join(tmpdir(), 'ui-tree-'));
+  t.after(() => rmSync(tray, { recursive: true, force: true }));
+  const root = join(tray, 'alpha');
+  const factory = join(tray, 'alpha-factory');
+  const kit = (dir) => {
+    mkdirSync(join(dir, 'scripts', 'warden'), { recursive: true });
+    writeFileSync(join(dir, 'scripts', 'warden', 'kit.json'), '{"name":"warden","version":"0.4.11"}');
+  };
+  mkdirSync(root);
+  spawnSync('git', ['init', '--quiet', '-b', 'main'], { cwd: root });
+  assert.equal(kitTree(root), root, 'no kit anywhere: the main root, which says it');
+  spawnSync('git', ['config', 'warden.factory', factory], { cwd: root });
+  assert.equal(kitTree(root), root, 'a factory tree with no kit is not read either');
+  kit(factory);
+  assert.equal(kitTree(root), factory);
+  const read = project({ tree: factory });
+  assert.equal(gestureCommand('version.show', {}, read).cwd, factory, 'the kit scripts run where the kit is');
+  assert.equal(gestureCommand('hooks.on', {}, read).cwd, read.path, 'the clone settings, from the main root');
+  kit(root);
+  assert.equal(kitTree(root), root, 'once the main root carries the kit, it is read there');
 });

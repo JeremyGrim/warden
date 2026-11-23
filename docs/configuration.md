@@ -154,6 +154,6 @@ Without `--from`, the text is read from the standard input. `deposit` checks the
 | `git config warden.tasks <tool>` | The task tool, following the five-gesture contract |
 | `git config warden.ghsa <clone>` | The clone of the advisory database (`WARDEN_GHSA_DATABASE` comes first) |
 | `git config warden.locale en\|fr` | The display locale (`WARDEN_LOCALE` comes first) |
-| `git config --global --add warden.projects <path>` | A project the interface covers, by its main root; one value per project, common to every clone of the workstation |
+| `git config --global --add warden.projects <path>` | A project the interface covers, by its main root; one value per project, common to every clone of the workstation. The install writes it, and the plugin's session hook once per clone |
 
-Two files of the clone's Git folder are written for the interface, never committed: `warden-ui.json`, the marks the person keeps (a case seen, a release published), and `warden-plugin.json`, the plugin version the plugin's session hook saw, written when it changes.
+Three files of the clone's Git folder are written for the interface, never committed: `warden-ui.json`, the marks the person keeps (a case seen, a release published); `warden-plugin.json`, the plugin version the plugin's session hook saw, written when it changes; `warden-listed.json`, the moment the clone was put on the workstation list, which keeps off it a project the person removed.

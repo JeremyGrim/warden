@@ -26,7 +26,7 @@ The projects are those listed on the workstation, plus the one it is launched fr
 git config --global --add warden.projects <path of the project's main root>
 ```
 
-The page adds and removes them too. Removing a project from the list never touches the project. Each project is read by its own kit: a project whose kit is older says which data it cannot give ("data absent: kit 0.3.0") instead of an empty view.
+The install lists the project it rules, and the plugin's session hook lists, once per clone, a project ruled before: a project Warden rules shows with no gesture. The page adds and removes them too. Removing a project from the list never touches the project, and it stays removed: the clone keeps the mark of its listing (`warden-listed.json`, in its Git folder). A project whose main root still stands on a commit from before the install is read from its factory tree (`warden.factory`), which follows the main branch, and the page says so. Each project is read by its own kit: a project whose kit is older says which data it cannot give ("data absent: kit 0.3.0") instead of an empty view.
 
 | View | What it shows | Source |
 |---|---|---|

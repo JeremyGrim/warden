@@ -5,6 +5,7 @@
 //
 // At adoption (the configuration not yet on the remote main branch), what the repository already holds is named as
 // debts, and each project step is tried once (tools/adopt.mjs). `--no-adopt` copies the kit and its models only.
+// The project is put once on the workstation list the interface covers (`warden.projects`), by its main root.
 //
 // The kit scripts (scripts/warden/) are copied as is, with their fingerprint manifest. A kit script edited in the
 // project, or a file unknown to the kit in that folder, stops the install without writing anything: the gap becomes a
@@ -18,7 +19,7 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { adoptDebts } from './adopt.mjs';
-import { folderFingerprints, MANIFEST } from '../kit/scripts/warden/kit.mjs';
+import { folderFingerprints, listOnWorkstation, MANIFEST } from '../kit/scripts/warden/kit.mjs';
 import { resolveLocale } from '../kit/scripts/warden/messages.mjs';
 import { KIT, kitManifest, KIT_SCRIPTS } from './fingerprints.mjs';
 
@@ -71,6 +72,8 @@ const MESSAGES = {
     rules_unread: 'the rules could not be read ({error}).',
     steps_failing: '{count} step(s) fail on the repository as it stands, left out of config/factory.json (_adopted.failing) until repaired: {list}.',
     steps_unread: 'the project steps could not be tried ({error}): they stay declared, try them before the first push.',
+    listed: '  listed on this workstation, the interface shows it (git config --global warden.projects): {root}',
+    list_failed: 'the project could not be listed on this workstation: git config --global --add warden.projects "{root}" puts it on the interface.',
   },
   fr: {
     not_git: '{path} n’est pas dans un dépôt Git : git init d’abord.',
@@ -100,6 +103,8 @@ const MESSAGES = {
     rules_unread: 'le règlement n’a pas pu être lu ({error}).',
     steps_failing: '{count} étape(s) échouent sur le dépôt tel qu’il est, sorties de config/factory.json (_adopted.failing) jusqu’à leur réparation : {list}.',
     steps_unread: 'les étapes du projet n’ont pas pu être essayées ({error}) : elles restent déclarées, les essayer avant la première poussée.',
+    listed: '  inscrit sur la liste du poste, l’interface le montre (git config --global warden.projects) : {root}',
+    list_failed: 'le projet n’a pas pu être inscrit sur la liste du poste : git config --global --add warden.projects "{root}" le montre dans l’interface.',
   },
 };
 
@@ -345,6 +350,9 @@ function main(argv) {
   if (!dryRun) {
     apply(root, plan);
     if (!argv.includes('--no-adopt')) sayDebts(adoptDebts(root), say);
+    const listed = listOnWorkstation(root);
+    if (listed.state === 'listed') console.log(say('listed', { root: listed.root }));
+    if (listed.state === 'failed') console.log(`  ! ${say('list_failed', { root: listed.root })}`);
   }
   console.log(say('next'));
   return true;

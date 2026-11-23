@@ -68,7 +68,7 @@ export function renderProjects(ctx) {
   const rows = projects.map((p) => {
     const state = trainState(p);
     const n = todoCount(data, p.path);
-    const flags = [p.here ? t('ui.projects.here') : null, p.listed ? null : t('ui.projects.not_listed')].filter(Boolean).join(' · ');
+    const flags = [p.here ? t('ui.projects.here') : null, p.listed ? null : t('ui.projects.not_listed'), p.read_from ? t('ui.projects.read_from') : null].filter(Boolean).join(' · ');
     const remove = removeAction(ctx, p);
     if (!p.ok) {
       return {
@@ -116,6 +116,7 @@ export function renderProject(ctx) {
   }
   if (p.here) meta.push(t('ui.projects.here'));
   if (!p.listed) meta.push(t('ui.projects.not_listed'));
+  if (p.read_from) meta.push(t('ui.projects.read_from_long', { tree: p.read_from }));
   const out = [header(p.name, meta, actions)];
   if (ctx.ui.armed === p.path) out.push(caption(null, t('ui.projects.remove_note')));
   if (!p.ok) {

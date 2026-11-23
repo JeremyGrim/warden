@@ -40,5 +40,6 @@ The installer is `<this skill folder>/../../tools/install.mjs`. The skill folder
 - What is installed, the kit version, and that it is on the main branch (the commit).
 - The debts it named, by kind and count, and the failing steps left out: each is a debt to repay, then to remove from `_adopted`.
 - What is not proven: a step that never ran, a boundary declared with no graph to read.
+- That the project is on the workstation's interface (the installer lists it: `npx github:JeremyGrim/warden ui`). If the installer said it could not, give the person its command.
 - That each other clone turns its hooks on once: `git config core.hooksPath .githooks`. A pnpm project can put it in its `prepare` script.
 - At most one question, if one is left that only the person can answer.

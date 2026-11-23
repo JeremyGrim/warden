@@ -4,14 +4,17 @@
 // from running (inactive Git hooks) or what makes them lag (a kit older than the plugin). When all is well it says
 // nothing: no context cost. It reads neither the conversation nor the tools.
 //
-// It leaves one trace: the plugin version, in the clone's Git folder (`warden-plugin.json`), written when it changes.
-// The interface, served by the kit, reads it there to say a kit behind the plugin (docs/interface.md).
+// It leaves two traces. The plugin version, in the clone's Git folder (`warden-plugin.json`), written when it changes:
+// the interface, served by the kit, reads it there to say a kit behind the plugin (docs/interface.md). And, once per
+// clone, the project on the workstation list the interface covers (`warden.projects`, kit.mjs listOnWorkstation): a
+// project ruled before the install listed itself is shown with no gesture, and one the person removed stays removed.
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { listOnWorkstation } from '../kit/scripts/warden/kit.mjs';
 import { resolveLocale } from '../kit/scripts/warden/messages.mjs';
 
 const PLUGIN = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -96,6 +99,11 @@ function main() {
     } catch {
       // A Git folder that cannot be written keeps only the notices.
     }
+  }
+  try {
+    listOnWorkstation(root);
+  } catch {
+    // A global configuration that cannot be written: the page's own gesture lists the project.
   }
   const at = process.argv.indexOf('--host');
   const host = at > 0 ? process.argv[at + 1] : 'claude';

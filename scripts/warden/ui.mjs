@@ -91,6 +91,14 @@ export function mainRoot(tree) {
   return common.ok ? dirname(common.out) : resolve(tree);
 }
 
+// The tree a project is read from: its main root when it carries the kit; otherwise its factory tree, which follows the
+// main branch, while the main root still stands on a commit from before the install. Its identity stays the main root.
+export function kitTree(path) {
+  if (existsSync(join(path, 'scripts', 'warden', MANIFEST))) return path;
+  const factory = git(['config', '--get', 'warden.factory'], path);
+  return factory.ok && factory.out && existsSync(join(factory.out, 'scripts', 'warden', MANIFEST)) ? resolve(factory.out) : path;
+}
+
 export function listedProjects(cwd = ROOT) {
   const r = git(['config', '--global', '--get-all', 'warden.projects'], cwd);
   return r.ok ? r.out.split(/\r?\n/).map((line) => line.trim()).filter(Boolean) : [];
@@ -170,14 +178,17 @@ export async function readProject(entry) {
   const base = { ...entry, ok: false };
   if (!existsSync(entry.path)) return { ...base, reason: 'missing' };
   if (!git(['rev-parse', '--git-dir'], entry.path).ok) return { ...base, reason: 'not_git' };
-  const kit = readJson(join(entry.path, 'scripts', 'warden', MANIFEST));
+  const tree = kitTree(entry.path);
+  const kit = readJson(join(tree, 'scripts', 'warden', MANIFEST));
   if (!kit) return { ...base, reason: 'no_kit' };
-  const status = await kitJson(entry.path, 'status.mjs', ['--json']);
-  if (!status) return { ...base, reason: 'unreadable', kit: { name: kit.name, version: kit.version } };
+  // Null when the main root carries the kit; otherwise the factory tree the page reads, said on the page.
+  const readFrom = samePath(tree, entry.path) ? null : tree;
+  const status = await kitJson(tree, 'status.mjs', ['--json']);
+  if (!status) return { ...base, reason: 'unreadable', tree, read_from: readFrom, kit: { name: kit.name, version: kit.version } };
   const work = status.slot ? dirname(status.slot.folder) : null;
   const history = work ? readLines(join(work, 'warden-history.jsonl')) : [];
   return {
-    ...base, ok: true, kit: { name: kit.name, version: kit.version }, absent: absentData(kit.version), status, work,
+    ...base, ok: true, tree, read_from: readFrom, kit: { name: kit.name, version: kit.version }, absent: absentData(kit.version), status, work,
     last_train: history.filter((e) => e.kind === 'train').at(-1) ?? null,
     releases: readReleases(work), state: readState(entry.path),
     // Null until a session of the plugin 0.4.4 or later opens in this clone.
@@ -187,7 +198,8 @@ export async function readProject(entry) {
 }
 
 export async function projectDetail(project, { days = 7 } = {}) {
-  const { path, status, work } = project;
+  const { status, work } = project;
+  const path = project.tree ?? project.path;
   const dock = status.dock?.folder ?? null;
   const gaps = manifestGaps(join(path, 'scripts', 'warden'), readJson(join(path, 'scripts', 'warden', MANIFEST)) ?? {});
   const config = Object.fromEntries(['factory', 'rules', 'disk', 'disk.local'].map((name) => {
@@ -290,7 +302,7 @@ export function gestureCommand(gesture, args, project, { kitSource = null } = {}
       // The kit checks that the tree is one of the clone's and not the factory's (disk.mjs, cloneTree).
       const tree = typeof args.tree === 'string' && isAbsolute(args.tree) && !/[\0-\x1f]/.test(args.tree) ? args.tree : null;
       if (!tree) throw new Error(t('ui_server.bad_tree'));
-      return { ...kit('disk.mjs', 'clean', '--tree', tree, ...(args.deep ? ['--deep'] : []), ...(args.apply ? ['--apply'] : [])), cwd: project.path };
+      return { ...kit('disk.mjs', 'clean', '--tree', tree, ...(args.deep ? ['--deep'] : []), ...(args.apply ? ['--apply'] : [])), cwd: project.tree ?? project.path };
     }
     case 'decision.answer': {
       const id = String(args.id ?? '');
@@ -298,7 +310,7 @@ export function gestureCommand(gesture, args, project, { kitSource = null } = {}
       const note = typeof args.note === 'string' ? args.note.trim() : '';
       if (!/^\d{8}-\d{6}-[0-9a-f]{4}$/.test(id) || (choice !== null && !(Number.isInteger(choice) && choice >= 1 && choice <= 6)) || note.length > 4000) throw new Error(t('ui_server.bad_decision'));
       const command = kit('decision.mjs', 'answer', id, ...(choice !== null ? ['--choice', String(choice)] : []), ...(note ? ['--note', note] : []));
-      return { ...command, show: `node scripts/warden/decision.mjs answer ${id}${choice !== null ? ` --choice ${choice}` : ''}${note ? ' --note "…"' : ''}`, cwd: project.path };
+      return { ...command, show: `node scripts/warden/decision.mjs answer ${id}${choice !== null ? ` --choice ${choice}` : ''}${note ? ' --note "…"' : ''}`, cwd: project.tree ?? project.path };
     }
     case 'config.deposit': {
       const file = String(args.file ?? '');
@@ -306,10 +318,10 @@ export function gestureCommand(gesture, args, project, { kitSource = null } = {}
       if (!CONFIG_FILES[file] || typeof args.content !== 'string' || args.content.length > CONTENT_MAX || /[\r\n]/.test(message) || message.length > 200) throw new Error(t('ui_server.bad_config'));
       const command = kit('change.mjs', 'deposit', file, ...(message ? ['--message', message] : []));
       const shown = `node scripts/warden/change.mjs deposit ${file}${message ? ` --message ${JSON.stringify(message)}` : ''}`;
-      return { ...command, input: args.content, show: `${shown} < ${t('ui_server.page_text')}`, cwd: project.path };
+      return { ...command, input: args.content, show: `${shown} < ${t('ui_server.page_text')}`, cwd: project.tree ?? project.path };
     }
     case 'version.show':
-      return { ...kit('version.mjs', 'show'), cwd: project.path };
+      return { ...kit('version.mjs', 'show'), cwd: project.tree ?? project.path };
     case 'kit.update': {
       // The newest kit installs itself, through the dock: its own script, run on this project.
       if (!kitSource || compareVersions(project.kit?.version, kitSource.version) >= 0) throw new Error(t('ui_server.no_kit_update'));
@@ -377,7 +389,7 @@ export async function startServer({ port = 0, here = mainRoot(ROOT), listed = ()
     if (!project.ok || project.absent.disk) return null;
     const cached = disks.get(project.path);
     if (cached && Date.now() - cached.at < 60 * 1000) return cached.data;
-    const data = await kitJson(project.path, 'disk.mjs', ['report', '--json', '--quick']);
+    const data = await kitJson(project.tree ?? project.path, 'disk.mjs', ['report', '--json', '--quick']);
     disks.set(project.path, { at: Date.now(), data });
     return data;
   };
@@ -442,19 +454,19 @@ export async function startServer({ port = 0, here = mainRoot(ROOT), listed = ()
     if (route === 'GET /api/disk') {
       if (!project.ok || project.absent.disk) return send(res, 200, null);
       if (url.searchParams.get('full') !== '1') return send(res, 200, await quickDisk(project));
-      return send(res, 200, await kitJson(project.path, 'disk.mjs', ['report', '--json']));
+      return send(res, 200, await kitJson(project.tree ?? project.path, 'disk.mjs', ['report', '--json']));
     }
     // The rules over the whole working tree, uncommitted files included: each file that breaks or nears a rule.
     if (route === 'GET /api/rules') {
       if (!project.ok || project.absent.rules) return send(res, 200, null);
-      return send(res, 200, await kitJson(project.path, 'rules.mjs', ['--json'], { anyCode: true }));
+      return send(res, 200, await kitJson(project.tree ?? project.path, 'rules.mjs', ['--json'], { anyCode: true }));
     }
     // A configuration text checked by the project's own kit (change.mjs check): nothing is written.
     if (route === 'POST /api/check') {
       const { file, content } = await body(req);
       if (!project.ok || project.absent.config_change) return send(res, 200, { unavailable: true });
       if (!CONFIG_FILES[file] || typeof content !== 'string' || content.length > CONTENT_MAX) return send(res, 400, { error: t('ui_server.bad_config') });
-      return send(res, 200, (await kitJson(project.path, 'change.mjs', ['check', file, '--json'], { input: content, anyCode: true })) ?? { unavailable: true });
+      return send(res, 200, (await kitJson(project.tree ?? project.path, 'change.mjs', ['check', file, '--json'], { input: content, anyCode: true })) ?? { unavailable: true });
     }
     if (route === 'GET /api/file') {
       const path = workFile(project.work, url.searchParams.get('file'));
