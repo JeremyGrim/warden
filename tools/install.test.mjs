@@ -23,7 +23,8 @@ function project(t, files) {
     mkdirSync(dirname(join(root, path)), { recursive: true });
     writeFileSync(join(root, path), content);
   }
-  const install = (...args) => spawnSync(process.execPath, [INSTALL, root, ...args], { encoding: 'utf8' });
+  // The copy and its models; adoption has its own guard (adopt.test.mjs).
+  const install = (...args) => spawnSync(process.execPath, [INSTALL, root, '--no-adopt', ...args], { encoding: 'utf8' });
   const read = (path) => readFileSync(join(root, path), 'utf8');
   return { root, install, read };
 }

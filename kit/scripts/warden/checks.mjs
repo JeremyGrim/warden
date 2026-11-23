@@ -97,13 +97,13 @@ function checkFile(path, rules, read, report, warn) {
   const foreign = isForeign(path, rules);
   const kib = content.length / 1024;
   const ceiling = rules.size_exceptions[path] ?? rules.max_size_kib;
-  if (ceiling && kib > ceiling && !foreign) report('size', path, t('size.over', { size: Math.ceil(kib), max: ceiling }));
+  if (ceiling && kib > ceiling && !foreign) report('size', path, t('size.over', { size: Math.ceil(kib), max: ceiling }), { kib: Math.ceil(kib) });
   if (!isText(content)) return;
 
   if (rules.max_lines && !foreign && !rules.lines_exempt.includes(name) && !rules.lines_exempt.includes(path)) {
     const lines = countLines(content);
     if (lines > rules.max_lines) {
-      report('lines', path, t('lines.over', { lines, max: rules.max_lines }));
+      report('lines', path, t('lines.over', { lines, max: rules.max_lines }), { lines });
     } else if (rules.warn_lines && lines > rules.warn_lines) {
       // Not a finding: the file is split at its next touch, before it hits the ceiling.
       warn('lines', path, t('lines.warn', { lines, max: rules.max_lines }));
@@ -113,7 +113,7 @@ function checkFile(path, rules, read, report, warn) {
   const text = content.toString('utf8');
   const allowed = rules.secret_exceptions[path] ?? {};
   for (const { name: kind, pattern } of rules.secrets) {
-    if (pattern.test(text) && !allowed[kind]) report('secret', path, t('secret.found', { kind }));
+    if (pattern.test(text) && !allowed[kind]) report('secret', path, t('secret.found', { kind }), { kind });
   }
   if (rules.docs?.forbidden_status && path.startsWith(rules.docs.dir) && rules.docs.forbidden_status.test(text.slice(0, 600))) {
     report('docs', path, t('docs.status'));
@@ -273,10 +273,11 @@ function checkDebts(files, all, rules, read, readBefore, report) {
   }
 }
 
-/** Findings refuse; `warn` receives what does not refuse yet (a file nearing the ceiling). */
+/** Findings refuse; `warn` receives what does not refuse yet (a file nearing the ceiling). A finding may carry a
+ * `detail` for tools (the lines, the size, the kind of secret), never needed to read it. */
 export function checkFiles({ files, all = files, rules, read, readBefore = () => null, warn = () => {} }) {
   const findings = [];
-  const report = (rule, path, message) => findings.push({ rule, path, message });
+  const report = (rule, path, message, detail = null) => findings.push({ rule, path, message, ...(detail ? { detail } : {}) });
   const notice = (rule, path, message) => warn({ rule, path, message });
 
   for (const path of files) checkFile(path, rules, read, report, notice);

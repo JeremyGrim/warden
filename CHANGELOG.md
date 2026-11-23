@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.10 - 2026-11-23
+
+Adopting Warden in a repository that already lives goes through in one pass: what it held before is named as debts, and only what is new refuses.
+
+### Added
+
+- **At adoption, the installer names what the repository already holds**, where each check reads it, dated: the Rust advisories in `config/deny.toml` (`[advisories] ignore`), the npm ones in `verify.npm_advisories.ignore`, the files over the lines or the size and the secret patterns in `config/rules.json`, listed under `_adopted`. Manifests that state two versions leave the single-version rule out: the install edits no product file. It says the possible keys it found, for the person to check and revoke if real, and what still refuses. Before, the first push of the install was refused for advisories the dependencies already had (adding `config/deny.toml` runs the dependency check), and the person or the agent had to name each finding by hand.
+- **At adoption, each project step is tried once**, after the dependencies are installed: a step that fails on the repository as it stands is left out of `config/factory.json` and kept with its first error under `_adopted.failing`, to be declared again once repaired. Declared, it would have refused every push and halted every train. `install.mjs --no-adopt` copies the kit and its models only.
+- The project steps the installer declares no longer run for `.gitignore` and `.gitattributes`: the install's own commit runs no product step.
+- **The npm advisories read named debts** (`verify.npm_advisories.ignore`, `npm-audit.mjs --ignore`): listed, they no longer fail the check; a new one does.
+- A finding of the rules carries a `detail` for tools (the lines, the size, the kind of secret).
+
+### Changed
+
+- **The setup goes through in one pass**: `onboard` in a repository without the kit runs `setup` instead of naming it; `setup` installs, names the debts, runs each step once and leaves out a step that fails today (`_adopted.failing`), commits, and pushes to the main branch through the hooks when no factory is declared yet, without a further question; then `factory-setup` when the person named the session the factory. `factory-setup` does its tree, its declaration, the slot and the dock without asking; the shared build cache and the CPU budget are proposed once at the end, never a precondition; the default budgets are kept to start.
+
 ## 0.4.9 - 2026-11-23
 
 ### Added

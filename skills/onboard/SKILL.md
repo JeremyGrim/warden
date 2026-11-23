@@ -15,7 +15,7 @@ From the tree you work in:
 node scripts/warden/status.mjs --agent <session name> --json
 ```
 
-- If `scripts/warden/` is missing, the kit is not installed. Offer `/warden:setup` and stop there.
+- If `scripts/warden/` is missing, the kit is not installed. Asking to start Warden here is asking for it: follow the `setup` skill now, in the same turn (`/warden:setup`, in Codex `$warden:setup`), then read the state again.
 - `kit`, `hooks_active`, `role`, `branch`, `main_branch`, `dock`, `mine`, `task_tool` and `shared_build_cache` are the facts you work from.
 
 ## 2. Read the rules
@@ -29,7 +29,7 @@ Read `AGENTS.md` in full. It is the only source of rules. `CLAUDE.md` only point
 - **Role**:
   - `factory`: this tree runs the train. Work as the factory: start the `warden:factory` agent (`claude --agent warden:factory`), or follow `/warden:factory-shift` (in Codex, `$warden:factory-shift`). Never work as an agent in this tree.
   - `agent`: work on a branch of your own, never on the main branch, and dock it when it is ready (`/warden:dock`).
-  - `unset`: no factory is declared for this workstation. Ask the person once whether this session is an agent or the factory. Never decide it alone.
+  - `unset`: no factory is declared for this workstation. If the person already said what this session is ("you are the factory", "you are an agent"), act on it: the factory follows the `factory-setup` skill now. Otherwise ask once. Never decide it alone.
 
 ## 4. Deal with what waits for you
 

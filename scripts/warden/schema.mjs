@@ -88,7 +88,7 @@ const FACTORY = object({
       separate: list(object({ package: string, args: list(string) }, ['package'])),
       deny: nullable(string),
     })),
-    npm_advisories: nullable(object({ lockfile: string }, ['lockfile'])),
+    npm_advisories: nullable(object({ lockfile: string, ignore: list(object({ id: string, reason: string }, ['id', 'reason'])) }, ['lockfile'])),
     steps: list(step),
     all: list(step),
     when_missing: oneOf('record', 'block'),

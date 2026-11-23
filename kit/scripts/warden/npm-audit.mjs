@@ -3,11 +3,12 @@
 // Database (OSV format), downloaded separately, and evaluates it per https://ossf.github.io/osv-schema/#evaluation. The
 // lockfile is pnpm's, and the version comparison (SemVer 2.0.0) is written here, with no dependency.
 //
-//   node scripts/warden/npm-audit.mjs [--database <clone>] [--lockfile pnpm-lock.yaml] [--output report.json]
+//   node scripts/warden/npm-audit.mjs [--database <clone>] [--lockfile pnpm-lock.yaml] [--output report.json] [--ignore <id,id>]
 //
 // The database comes from `--database`, from `WARDEN_GHSA_DATABASE`, or from the workstation (`git config warden.ghsa
 // <clone>`). The check fails on a HIGH or CRITICAL advisory, on data it cannot read (never taken as healthy) and on a
-// database older than 48 hours. It counts dev dependencies. `verify.mjs` runs it when the lockfile changes and in
+// database older than 48 hours. An advisory named in `--ignore` is a debt the project named with its reason
+// (`verify.npm_advisories.ignore`): it is listed, and does not fail the check. It counts dev dependencies. `verify.mjs` runs it when the lockfile changes and in
 // `all`, and says the step is skipped without a clone.
 //
 // The clone lives outside the repository. Only advisories reviewed by GitHub are used, and it keeps only them:
@@ -160,7 +161,7 @@ function* advisoryFiles(dir) {
 
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
-export function auditNpmLockLocally({ lockfile, database, now = new Date(), maxAgeHours = 48 }) {
+export function auditNpmLockLocally({ lockfile, database, now = new Date(), maxAgeHours = 48, ignore = [] }) {
   if (!(maxAgeHours > 0) || !Number.isFinite(maxAgeHours)) throw new Error('Invalid maximum database age');
   const git = (args) => execFileSync('git', ['-C', database, ...args], { encoding: 'utf8' }).trim();
   const revision = git(['rev-parse', 'HEAD']);
@@ -191,14 +192,15 @@ export function auditNpmLockLocally({ lockfile, database, now = new Date(), maxA
   if (!Number.isFinite(ageHours) || ageHours < -1 || ageHours > maxAgeHours) {
     unqualified.push({ reason: 'Advisory database stale or wrongly dated', committedAt, ageHours });
   }
-  const matches = [...findings.values()];
+  const named = new Set(ignore);
+  const matches = [...findings.values()].map((f) => (named.has(f.id) ? { ...f, debt: true } : f));
   return { schemaVersion: 1, checkedAt: now.toISOString(),
     source: { url: 'https://github.com/github/advisory-database', revision, committedAt, ageHours,
       maxAgeHours, license: 'CC-BY-4.0', networkDuringMatch: false },
     lockfileSha256: sha256(bytes), matcherSha256: sha256(readFileSync(fileURLToPath(import.meta.url))),
     packageInstances: packages.length, uniquePackages: names.size, files, npmAdvisories, withdrawn,
     findings: matches, unqualified, examined,
-    status: unqualified.length || matches.some((f) => ['HIGH', 'CRITICAL'].includes(f.severity)) ? 'failed' : 'passed',
+    status: unqualified.length || matches.some((f) => !f.debt && ['HIGH', 'CRITICAL'].includes(f.severity)) ? 'failed' : 'passed',
     limits: ['Compares declared versions, not whether vulnerable functions are reachable.',
       'Counts dev and optional dependencies; certifies neither node_modules nor the bundled code.',
       'Covers the public revision of the downloaded database, nothing more.'] };
@@ -221,11 +223,12 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     const lockfile = option(args, '--lockfile') ?? path.join(ROOT, 'pnpm-lock.yaml');
     const output = option(args, '--output');
     if (!database) throw new Error(t('npm.no_database'));
-    const result = auditNpmLockLocally({ lockfile, database });
+    const ignore = (option(args, '--ignore') ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+    const result = auditNpmLockLocally({ lockfile, database, ignore });
     if (output) writeFileSync(output, `${JSON.stringify(result, null, 2)}\n`);
     console.log(t(result.status === 'passed' ? 'npm.passed' : 'npm.failed', { packages: result.packageInstances, examined: result.examined.length,
       advisories: result.npmAdvisories, revision: result.source.revision.slice(0, 12), hours: Math.round(result.source.ageHours) }));
-    for (const f of result.findings) console.log(`  ${f.severity.padEnd(8)} ${f.id}  ${f.package.name}@${f.package.version}  ${f.summary ?? ''}`);
+    for (const f of result.findings) console.log(`  ${f.severity.padEnd(8)} ${f.id}  ${f.package.name}@${f.package.version}  ${f.debt ? `[${t('npm.debt')}] ` : ''}${f.summary ?? ''}`);
     for (const u of result.unqualified) console.log(`  ${t('npm.unqualified')} ${u.id ?? ''} ${u.package ? `${u.package.name}@${u.package.version}` : ''} ${u.reason}`);
     if (result.status !== 'passed') process.exitCode = 1;
   } catch (error) {

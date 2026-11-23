@@ -92,6 +92,7 @@ export const EN = {
   'npm.no_database': 'The advisory database is missing: --database <clone of github/advisory-database>, WARDEN_GHSA_DATABASE or git config warden.ghsa.',
   'npm.passed': 'npm advisories: nothing blocking — {packages} packages, {examined} advisories examined out of {advisories}, database {revision} ({hours} h).',
   'npm.failed': 'npm advisories: FAILED — {packages} packages, {examined} advisories examined out of {advisories}, database {revision} ({hours} h).',
+  'npm.debt': 'named debt',
   'npm.unqualified': 'UNQUALIFIED',
 
   // Train

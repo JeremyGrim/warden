@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 // Installs the kit in a project, or updates it.
 //
-//   node tools/install.mjs [<project>] [--dry-run] [--locale en|fr]
+//   node tools/install.mjs [<project>] [--dry-run] [--locale en|fr] [--no-adopt]
+//
+// At adoption (the configuration not yet on the remote main branch), what the repository already holds is named as
+// debts, and each project step is tried once (tools/adopt.mjs). `--no-adopt` copies the kit and its models only.
 //
 // The kit scripts (scripts/warden/) are copied as is, with their fingerprint manifest. A kit script edited in the
 // project, or a file unknown to the kit in that folder, stops the install without writing anything: the gap becomes a
@@ -14,13 +17,15 @@ import { appendFileSync, chmodSync, copyFileSync, existsSync, mkdirSync, readdir
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { adoptDebts } from './adopt.mjs';
 import { folderFingerprints, MANIFEST } from '../kit/scripts/warden/kit.mjs';
 import { resolveLocale } from '../kit/scripts/warden/messages.mjs';
 import { KIT, kitManifest, KIT_SCRIPTS } from './fingerprints.mjs';
 
 const LOCKFILES = { 'pnpm-lock.yaml': 'pnpm', 'package-lock.json': 'npm', 'yarn.lock': 'yarn', 'bun.lock': 'bun', 'bun.lockb': 'bun' };
-// What triggers the project steps: everything except the kit, the configuration, the docs and the root .md files.
-const OUTSIDE_KIT = '^(?!(scripts/warden|\\.githooks|config|docs)/|[^/]+\\.md$)';
+// What triggers the project steps: everything except the kit, the configuration, the docs, the root .md files and the
+// two Git files the install touches: the install's own commit runs no product step.
+const OUTSIDE_KIT = '^(?!(scripts/warden|\\.githooks|config|docs)/|[^/]+\\.md$|\\.git(ignore|attributes)$)';
 const RUST_FULL = ['^Cargo\\.(toml|lock)$', '^rust-toolchain(\\.toml)?$', '^\\.cargo/'];
 // The pre-push hook as kits up to 0.3.0 wrote it: it ran every script test, the kit's own included, on each push.
 const PREVIOUS_PUSH_HOOKS = [
@@ -56,6 +61,16 @@ const MESSAGES = {
     claude_rules: 'CLAUDE.md carries rules: move them to AGENTS.md, then reduce it to the pointer to AGENTS.md.',
     hooks_path: 'core.hooksPath is already "{path}": it is not changed. Call the kit hooks from there, or move to .githooks.',
     next: '\nNext: review config/rules.json and config/factory.json, run node scripts/warden/rules.mjs, then commit these files.',
+    debts: '  {count} advisory(ies) present before Warden, named as debts in {file}: {list}. A new advisory still blocks.',
+    debts_unread: 'the {check} advisories could not be read ({error}): the first push may be refused for advisories older than Warden. Run the install again once the check runs.',
+    deny_others: 'the dependency check also refuses what is not an advisory: {list}. Fix it, or name an exception in config/deny.toml, before the first push.',
+    rules_debts: '  {count} finding(s) of the rules present before Warden, named in config/rules.json (_adopted): {lines} file(s) over the lines, {size} over the size, {secrets} secret pattern(s). What is new still refuses.',
+    rules_versions: 'the manifests do not state one version ({detail}): the single-version rule is left out until they agree. The install edits no manifest.',
+    rules_keys: 'possible keys already committed, named as exceptions to review: {list}. A real key is revoked, whatever Warden says.',
+    rules_left: 'the rules still refuse: {list}. Fix them before the first commit.',
+    rules_unread: 'the rules could not be read ({error}).',
+    steps_failing: '{count} step(s) fail on the repository as it stands, left out of config/factory.json (_adopted.failing) until repaired: {list}.',
+    steps_unread: 'the project steps could not be tried ({error}): they stay declared, try them before the first push.',
   },
   fr: {
     not_git: '{path} n’est pas dans un dépôt Git : git init d’abord.',
@@ -75,6 +90,16 @@ const MESSAGES = {
     claude_rules: 'CLAUDE.md porte des règles : les reporter dans AGENTS.md, puis le réduire au renvoi vers AGENTS.md.',
     hooks_path: 'core.hooksPath vaut déjà « {path} » : il n’est pas changé. Y appeler les crochets du kit, ou passer à .githooks.',
     next: '\nEnsuite : relire config/rules.json et config/factory.json, lancer node scripts/warden/rules.mjs, puis commiter ces fichiers.',
+    debts: '  {count} avis présent(s) avant Warden, nommé(s) comme dettes dans {file} : {list}. Un avis nouveau bloque toujours.',
+    debts_unread: 'les avis {check} n’ont pas pu être lus ({error}) : la première poussée peut être refusée pour des avis antérieurs à Warden. Relancer la pose une fois ce contrôle en état de tourner.',
+    deny_others: 'le contrôle des dépendances refuse aussi ce qui n’est pas un avis : {list}. Le corriger, ou nommer une exception dans config/deny.toml, avant la première poussée.',
+    rules_debts: '  {count} écart(s) au règlement présent(s) avant Warden, nommé(s) dans config/rules.json (_adopted) : {lines} fichier(s) au-delà des lignes, {size} au-delà de la taille, {secrets} motif(s) de secret. Ce qui est nouveau refuse toujours.',
+    rules_versions: 'les manifestes ne disent pas une seule version ({detail}) : la règle de version unique est laissée de côté jusqu’à leur accord. La pose ne modifie aucun manifeste.',
+    rules_keys: 'clés possibles déjà commitées, nommées en exceptions à relire : {list}. Une vraie clé se révoque, quoi que dise Warden.',
+    rules_left: 'le règlement refuse encore : {list}. À corriger avant le premier commit.',
+    rules_unread: 'le règlement n’a pas pu être lu ({error}).',
+    steps_failing: '{count} étape(s) échouent sur le dépôt tel qu’il est, sorties de config/factory.json (_adopted.failing) jusqu’à leur réparation : {list}.',
+    steps_unread: 'les étapes du projet n’ont pas pu être essayées ({error}) : elles restent déclarées, les essayer avant la première poussée.',
   },
 };
 
@@ -261,6 +286,33 @@ function apply(root, plan) {
   if (plan.hooks) git(root, ['config', 'core.hooksPath', '.githooks']);
 }
 
+// What the project carried before Warden, said once: the debts named, and what still refuses.
+function sayDebts(report, say) {
+  const rules = report.rules;
+  if (rules?.error) console.log(`  ! ${say('rules_unread', { error: rules.error })}`);
+  else if (rules) {
+    const { named } = rules;
+    if (rules.count) console.log(say('rules_debts', { count: rules.count, lines: named.lines.length, size: named.size.length, secrets: named.secret.length }));
+    if (named.versions) console.log(`  ! ${say('rules_versions', { detail: named.versions })}`);
+    const keys = named.secret.filter((s) => s.kind !== 'machine path').map((s) => `${s.path} (${s.kind})`);
+    if (keys.length) console.log(`  ! ${say('rules_keys', { list: keys.join(', ') })}`);
+    if (rules.left.length) console.log(`  ! ${say('rules_left', { list: rules.left.map((f) => `[${f.rule}] ${f.path}`).join(', ') })}`);
+  }
+  const steps = report.steps;
+  if (steps?.error) console.log(`  ! ${say('steps_unread', { error: steps.error })}`);
+  else if (steps?.failing?.length) console.log(`  ! ${say('steps_failing', { count: steps.failing.length, list: steps.failing.map((s) => `${s.title}: ${s.first_error.replace(/[.\s]+$/, '')}`).join('; ') })}`);
+  for (const [kind, file, check] of [['rust', 'config/deny.toml', 'Rust (cargo deny)'], ['npm', 'config/factory.json', 'npm']]) {
+    const found = report[kind];
+    if (!found) continue;
+    if (found.error) {
+      console.log(`  ! ${say('debts_unread', { check, error: found.error })}`);
+      continue;
+    }
+    if (found.debts.length) console.log(say('debts', { count: found.debts.length, file, list: found.debts.map((d) => d.id).join(', ') }));
+    if (found.others.length) console.log(`  ! ${say('deny_others', { list: found.others.join('; ') })}`);
+  }
+}
+
 function main(argv) {
   const dryRun = argv.includes('--dry-run');
   const locale = argv.includes('--locale') ? argv[argv.indexOf('--locale') + 1] : resolveLocale();
@@ -290,7 +342,10 @@ function main(argv) {
   if (plan.kept.length) console.log(say('kept', { list: plan.kept.join(', ') }));
   if (plan.allowed.length) console.log(say('allowed', { list: plan.allowed.join(', ') }));
   for (const warning of plan.warnings) console.log(`  ! ${warning}`);
-  if (!dryRun) apply(root, plan);
+  if (!dryRun) {
+    apply(root, plan);
+    if (!argv.includes('--no-adopt')) sayDebts(adoptDebts(root), say);
+  }
   console.log(say('next'));
   return true;
 }

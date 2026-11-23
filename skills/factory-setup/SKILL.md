@@ -7,7 +7,7 @@ description: Sets up the Warden factory on a workstation. It gives the factory i
 
 The factory is one long-lived session that runs the merge train and nothing else: it never writes product code. One factory at a time per workstation. Reply in the person's language.
 
-Everything here is workstation configuration, outside the repository, except the budgets and the fixes policy of `config/`, which the project commits. Change nothing on the machine without the person's agreement, and say what you changed and how to undo it.
+Asking for a factory is asking for steps 1 to 3 and 9: do them now, without a further question. Steps 4 and 5 change the machine outside the repository (a shared build cache, the Cargo configuration of the agent trees): they make the factory faster, never possible. Propose them once, at the end, in one question; never make them a precondition. Say what you changed and how to undo it.
 
 ## 1. Its own tree
 
@@ -55,7 +55,7 @@ A C or C++ dependency whose build carries its own compiler cache can fail under 
 
 ## 6. Size the budgets
 
-The default values come from one workstation. They are starting values: measure yours and set them with the person.
+The default values come from one workstation. Keep them to start, and say them: the person changes them later, from the interface's configuration view or through a deposit.
 
 | Budget | Default | Where |
 |---|---|---|

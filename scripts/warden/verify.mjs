@@ -196,7 +196,8 @@ function npmSteps(conf) {
     notRun(t('verify.step.npm'), t('verify.npm_no_database'));
     return [];
   }
-  return [{ title: t('verify.step.npm'), command: ['node', 'scripts/warden/npm-audit.mjs', '--lockfile', conf.lockfile] }];
+  const named = (conf.ignore ?? []).map((d) => d.id).filter(Boolean);
+  return [{ title: t('verify.step.npm'), command: ['node', 'scripts/warden/npm-audit.mjs', '--lockfile', conf.lockfile, ...(named.length ? ['--ignore', named.join(',')] : [])] }];
 }
 
 // Packages tested separately (`separate`): a shell that is only tested with its own arguments.

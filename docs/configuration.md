@@ -85,7 +85,7 @@ The `secrets` model admits one fictitious user name in test paths: `person`, its
 | `work_dir` | The folder at the main root that holds the slot and the dock (`.work`) |
 | `slot.name`, `slot.log` | The slot folder name, and an optional log file next to it |
 | `verify.rust` | `full_on` (patterns that verify the whole workspace), `clippy`, `tests`, `separate` (a package tested on its own, with its `args`), `deny` (the `cargo deny` configuration) |
-| `verify.npm_advisories` | `lockfile`: the pnpm lockfile compared to a local clone of the GitHub Advisory Database |
+| `verify.npm_advisories` | `lockfile`: the pnpm lockfile compared to a local clone of the GitHub Advisory Database. `ignore`: advisories named as debts, `{ id, reason }`; listed, they no longer fail the check |
 | `verify.steps` | `{ title, when, command, unchanged }`: `when` lists path patterns, `command` is an array, `unchanged` lists paths the command must not change (generated files) |
 | `verify.all` | Extra steps for `verify.mjs all` |
 | `verify.when_missing` | What a check asked for and not run does (a tool absent, no advisory database): `record` (default) lets the commit go, recorded as not verified on it; `block` makes it wait. Never counted as passed |
@@ -105,6 +105,19 @@ The `secrets` model admits one fictitious user name in test paths: `person`, its
 | `fixes` | What the factory may commit itself, on its own branch: `version`, `lock`, `generated`, `lint`. Default: the first three |
 
 Every default comes from one workstation: size them for yours.
+
+## Adoption: what the repository already holds
+
+A repository that adopts Warden already holds things the rules refuse: an advisory in its dependencies, a long file, a secret pattern in a test fixture, two manifests that state two versions, a build that fails. None of them is the next push's fault. At adoption (the configuration not yet on the remote main branch), the installer names each one where its check reads it, dated, with its reason:
+
+- the Rust advisories in `[advisories] ignore` of `config/deny.toml`, the npm ones in `verify.npm_advisories.ignore`;
+- the files over the lines in `lines_exempt`, over the size in `size_exceptions`, the secret patterns in `secret_exceptions`, all listed under `_adopted` in `config/rules.json`;
+- manifests that disagree: the single-version rule is left out until they agree. The install edits no product file;
+- each project step is tried once, after the dependencies are installed: a step that fails on the repository as it stands is not declared, and is kept with its first error under `_adopted.failing` in `config/factory.json`.
+
+`install.mjs --no-adopt` copies the kit and its models only.
+
+What is new still refuses. A possible key named this way is the person's to check, and to revoke if it is real. What else refuses (a committed artifact, a second lockfile, a license) is said, and fixed before the first commit. Once the configuration is on the main branch, the installer names nothing more: accepting a debt is then the person's decision, written by hand with its reason. Each debt is repaid, then removed from the list.
 
 ## Checking and depositing a change
 
