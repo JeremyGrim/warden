@@ -18,7 +18,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { readFactory, ROOT, runCaptured, stationSetting } from './config.mjs';
+import { readFactory, ROOT, runCaptured, sameTree, stationSetting } from './config.mjs';
 import { appendHistory, historyPath } from './history.mjs';
 import { t } from './messages.mjs';
 import { advisoryDatabase } from './npm-audit.mjs';
@@ -269,6 +269,13 @@ function releaseAfterPush(folder, commit) {
   spawn(process.execPath, [fileURLToPath(import.meta.url), 'release-slot', folder, commit], { cwd: tmpdir(), detached: true, stdio: 'ignore', windowsHide: true }).unref();
 }
 
+// Only the factory pushes to the main branch, once the workstation declares it: any other tree docks its branch and
+// the train takes it up. Before the factory is declared, nothing is refused for it.
+export function mainPushRefusal({ toMain, factoryTree, root = ROOT, branch }) {
+  if (!toMain || !factoryTree || sameTree(factoryTree, root)) return null;
+  return t('verify.not_factory', { branch, tree: factoryTree });
+}
+
 async function pushCommand(input) {
   const factory = readFactory();
   const { main_branch: main, remote } = factory;
@@ -283,6 +290,11 @@ async function pushCommand(input) {
   }
   // One push to the main branch at a time on the workstation: the slot is taken before any verification.
   const toMain = refs.find((ref) => ref.remoteRef === `refs/heads/${main}`);
+  const notFactory = mainPushRefusal({ toMain, factoryTree: toMain ? stationSetting('factory') : null, branch: main });
+  if (notFactory) {
+    console.error(t('verify.push_refused', { reason: notFactory }));
+    return false;
+  }
   const folder = toMain ? stationSlot(factory) : null;
   if (toMain && !folder) console.warn(t('verify.no_slot', { work: factory.work_dir }));
   if (folder) {

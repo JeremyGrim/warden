@@ -25,7 +25,8 @@ const FACTORY = [
   ['ui.col.train', [
     ['train.branch', 'ui.cfg.train_branch', '"warden-train"'], ['train.dock', 'ui.cfg.train_dock', '"train-ready"'], ['train.max_batch', 'ui.cfg.train_max_batch', '4'],
     ['train.install', 'ui.cfg.train_install', 'null'], ['train.build', 'ui.cfg.train_build', 'null'], ['train.min_free_memory_gib', 'ui.cfg.train_memory', '8'],
-    ['train.memory_per_job_gib', 'ui.cfg.train_memory_job', '2'], ['train.retry_minutes', 'ui.cfg.train_retry', '10'], ['train.halt_notice_minutes', 'ui.cfg.train_notice', '30']]],
+    ['train.memory_per_job_gib', 'ui.cfg.train_memory_job', '2'], ['train.retry_minutes', 'ui.cfg.train_retry', '10'], ['train.halt_notice_minutes', 'ui.cfg.train_notice', '30'],
+    ['train.cargo_profiles', 'ui.cfg.train_profiles', '["debug","release"]']]],
   ['ui.cfg.group_rest', [
     ['history.keep_days', 'ui.cfg.history_keep', '90'], ['version.line', 'ui.cfg.version_line', 'ui.cfg.default_line'], ['version.files', 'ui.cfg.version_files', 'ui.cfg.default_files'],
     ['release', 'ui.cfg.release', 'null'], ['fixes', 'ui.cfg.fixes', '["version","lock","generated"]']]],

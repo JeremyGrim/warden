@@ -2,7 +2,7 @@ import './git-env.mjs';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { failedTests, pushedRefs, pushPlan, withDependents, workspacePackages } from './verify.mjs';
+import { failedTests, mainPushRefusal, pushedRefs, pushPlan, withDependents, workspacePackages } from './verify.mjs';
 
 // A small workspace: the model, the store depending on it, the core depending on the store, the shell of the core, and
 // a separate tool. The store depends on the model only for its tests.
@@ -109,4 +109,15 @@ test('failed tests are read from the cargo test output, once each', () => {
   const output = 'running 3 tests\ntest a::ok ... ok\ntest cognition::c45 ... FAILED\r\ntest b::slow has been running for over 60 seconds\ntest b::slow ... FAILED\n\nfailures:\n    cognition::c45\ntest cognition::c45 ... FAILED\n';
   assert.deepEqual(failedTests(output), ['cognition::c45', 'b::slow']);
   assert.deepEqual(failedTests('test result: ok. 3 passed'), []);
+});
+
+test('only the declared factory pushes to the main branch', () => {
+  const factory = process.platform === 'win32' ? 'C:\\repos\\project-factory' : '/repos/project-factory';
+  const agent = process.platform === 'win32' ? 'C:\\repos\\project-agent' : '/repos/project-agent';
+  const toMain = { local: 'a'.repeat(40), remoteRef: 'refs/heads/main' };
+  assert.match(mainPushRefusal({ toMain, factoryTree: factory, root: agent, branch: 'main' }) ?? '', /factory.*main.*project-factory/);
+  const written = process.platform === 'win32' ? factory.toUpperCase().replaceAll('\\', '/') : factory;
+  assert.equal(mainPushRefusal({ toMain, factoryTree: written, root: factory, branch: 'main' }), null, 'the factory itself, however its path is written');
+  assert.equal(mainPushRefusal({ toMain: null, factoryTree: factory, root: agent, branch: 'main' }), null, 'a push to another branch');
+  assert.equal(mainPushRefusal({ toMain, factoryTree: null, root: agent, branch: 'main' }), null, 'no factory declared yet');
 });

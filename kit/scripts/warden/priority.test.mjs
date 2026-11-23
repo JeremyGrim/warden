@@ -62,3 +62,14 @@ test('the train goes up, the agent down, the unknown stays; when the train ends,
   assert.deepEqual([...priorities.values()], [0, 0, 0, 0, 0], 'a process that ended meanwhile is no trouble');
   assert.equal(kept.size, 0);
 });
+
+test('a Cargo profile of the project counts once it is named', () => {
+  const triple = `${AGENT}/target/x86_64-pc-windows-msvc/preversion/app.exe`;
+  const station = [p(40, 0, 'app.exe', 'app.exe', triple)];
+  assert.ok(!classify(station, TRAIN, OTHERS).has(40), 'an unknown profile is not a build');
+  assert.equal(classify(station, TRAIN, OTHERS, ['debug', 'release', 'preversion']).get(40), 'other');
+  const kept = new Map();
+  const set = new Map();
+  adjust(station, TRAIN, kept, { others: OTHERS, profiles: ['preversion'], read: () => constants.priority.PRIORITY_NORMAL, set: (pid, value) => set.set(pid, value) });
+  assert.equal(set.get(40), constants.priority.PRIORITY_LOW, 'adjust passes the profiles on');
+});

@@ -85,7 +85,7 @@ git config warden.factory "<absolute path of the factory tree>"
 claude --agent warden:factory
 ```
 
-Once a factory tree is declared, the train refuses to run anywhere else. The factory sets itself up (`/warden:factory-setup`), runs its shift (`/warden:factory-shift`), takes each train (`/warden:train`), watches the workstation (`/warden:factory-health`) and builds releases (`/warden:release`). A train that cannot tell whose fault a failure is halts and blames nobody, then resumes by itself; no person is a relay for an ordinary unblocking. The shared build cache, the CPU budget and the push slot are part of its setup. See the [Factory guide](docs/factory-guide.md) and [Build cache](docs/build-cache.md).
+Once a factory tree is declared, the train refuses to run anywhere else, and a push to the main branch from any other tree is refused: every other tree docks. The factory sets itself up (`/warden:factory-setup`), runs its shift (`/warden:factory-shift`), takes each train (`/warden:train`), watches the workstation (`/warden:factory-health`) and builds releases (`/warden:release`). A train that cannot tell whose fault a failure is halts and blames nobody, then resumes by itself; no person is a relay for an ordinary unblocking. The shared build cache, the CPU budget and the push slot are part of its setup. See the [Factory guide](docs/factory-guide.md) and [Build cache](docs/build-cache.md).
 
 ![Before 0.4.0 a person relayed routine blockages; agents now resolve them. Product decisions, publishing a release, cleaning other trees, workstation settings and leaving the version line stay with the person.](docs/images/05-unblocking.png)
 

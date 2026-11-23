@@ -265,6 +265,20 @@ async function rustAndNode() {
     check('the train refuses to run outside the factory tree', elsewhere.status !== 0 && elsewhere.text.includes('is not the factory'), elsewhere.log);
     trees = r.trees;
   });
+  await step('A. Only the factory pushes to the main branch', async () => {
+    git(root, 'fetch', '--quiet', 'origin');
+    const tree = join(TRAY, 'rust-node-agent-push');
+    git(root, 'worktree', 'add', '--quiet', '-b', 'agent-push', tree, 'origin/main');
+    write(tree, { 'web/note.mjs': 'export const note = 1;\n' });
+    git(tree, 'add', '-A');
+    git(tree, 'commit', '--quiet', '-m', 'note');
+    const before = project.head();
+    const r = git(tree, 'push', 'origin', 'HEAD:main');
+    check('a push to the main branch from an agent tree is refused, and nothing arrives', r.status !== 0 && r.text.includes('only the factory pushes to main') && project.head() === before, r.log);
+    const own = git(tree, 'push', '--quiet', 'origin', 'agent-push');
+    check('the agent still pushes its own branch', own.status === 0, own.log);
+    git(root, 'worktree', 'remove', '--force', tree);
+  });
   await step('A. A refused branch, fixed and docked again with a new commit, goes up', async () => {
     const tree = trees['agent-c'];
     write(tree, { 'web/gap.test.mjs': "import assert from 'node:assert/strict';\nimport { test } from 'node:test';\ntest('gap', () => assert.equal(2, 2));\n" });
@@ -548,6 +562,31 @@ async function nodeOnly() {
     } finally {
       child.kill();
     }
+  });
+  await step('B. A release built in a clone outside the repository, its own target, only the latest kept', async () => {
+    upToDate(root);
+    const factory = JSON.parse(readFileSync(join(root, 'config/factory.json'), 'utf8'));
+    // The build writes down the Cargo target it was given: the clone's own, never the workstation's.
+    const build = "const fs = require('fs'); fs.mkdirSync('out', { recursive: true }); fs.writeFileSync('out/app-0.1.0.txt', process.env.CARGO_TARGET_DIR || 'none');";
+    factory.release = { ...factory.release, build: ['node', '-e', build], tree: 'clone', keep: 1 };
+    writeFileSync(join(root, 'config/factory.json'), `${JSON.stringify(factory, null, 2)}\n`);
+    git(root, 'add', 'config/factory.json');
+    const setup = await push(project, 'releases in a clone, the latest kept', []);
+    check('the release section takes a clone and a retention', setup.status === 0 && setup.arrived, setup.log);
+    const clones = join(TRAY, 'release-clones');
+    git(root, 'config', 'warden.releaseDir', clones);
+    const head = git(root, 'rev-parse', 'HEAD').text.trim();
+    const worktrees = git(root, 'worktree', 'list', '--porcelain').text;
+    const r = node(root, 'scripts/warden/release.mjs', 'build', '--commit', head, '--label', 'v0.1.0-clone');
+    const folder = join(root, '.work', 'releases', 'v0.1.0-clone');
+    const summary = readJson(join(folder, 'release.json'));
+    const target = existsSync(join(folder, 'app-0.1.0.txt')) ? readFileSync(join(folder, 'app-0.1.0.txt'), 'utf8') : '';
+    check('the release is built in a clone under the declared folder, gone once the artifacts are copied', r.status === 0 && summary?.built_in === 'clone' && summary.commit === head && r.text.includes(clones) && existsSync(clones) && readdirSync(clones).length === 0, r.log);
+    check('the clone builds with a Cargo target of its own', target.startsWith(clones) && /[\\/]target$/.test(target), target);
+    check('no worktree of the root is used', git(root, 'worktree', 'list', '--porcelain').text === worktrees);
+    const kept = readdirSync(join(root, '.work', 'releases'));
+    check('only the latest release is kept', kept.join(',') === 'v0.1.0-clone' && r.text.includes('Older releases removed'), kept.join(', '));
+    git(root, 'config', '--unset', 'warden.releaseDir');
   });
 }
 

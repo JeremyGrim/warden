@@ -27,7 +27,7 @@ To try the plugin from a local clone without installing it: `claude --plugin-dir
 ## Set it up once
 
 1. **Its own tree**: a dedicated worktree (`git worktree add <path> origin/main --detach`) or a separate clone. Never an agent's tree.
-2. **Declare it**: `git config warden.factory "<absolute path>"`. The train then refuses to run in any other tree, and `status.mjs` shows each tree its role.
+2. **Declare it**: `git config warden.factory "<absolute path>"`. The train then refuses to run in any other tree, the push hook refuses a push to the main branch from any other tree, and `status.mjs` shows each tree its role.
 3. **One slot, one dock**: every worktree of the clone shares `.work/push-slot` and `.work/train-ready/`. A separate clone sets `git config warden.slot "<main root>/.work/push-slot"`.
 4. **Build cache, CPU and memory budget**: see [Build cache](build-cache.md).
 5. **Budgets**: the defaults of `config/disk.json` and `config/factory.json` come from one workstation; size them (see [Configuration](configuration.md)).
@@ -107,16 +107,19 @@ A release is a frozen commit of the main branch: only what went up through the t
   "build": ["pnpm", "tauri", "build"],
   "artifacts": ["target/release/bundle/msi/*.msi", "target/release/bundle/nsis/*-setup.exe"],
   "sign": ["node", "scripts/sign.mjs"],
-  "check_signature": ["signtool", "verify", "/pa", "{file}"]
+  "check_signature": ["signtool", "verify", "/pa", "{file}"],
+  "tree": "clone",
+  "keep": 3
 }
 ```
 
 `node scripts/warden/release.mjs build --commit <sha> [--label <name>]`. The label defaults to the version the commit carries (`v0.4.1`).
 
 1. refuses a commit that is not on the main branch, and refuses while the slot is held: one big build at a time;
-2. checks the commit out in `.work/release-tree`, a worktree of its own, never the train tree; it never counts in the worktree budget;
+2. checks the commit out in `.work/release-tree`, a worktree of its own, never the train tree; it never counts in the worktree budget. With `"tree": "clone"`, it checks the commit out in a fresh clone outside the repository instead, under `git config warden.releaseDir` or the system's temporary folder, with its own Cargo target (`CARGO_TARGET_DIR`), and deletes the clone once the artifacts are copied. Nothing untracked of the root reaches that build: a local `.env` file, a shared target;
 3. removes the artifacts of an earlier release, installs (`train.install`), builds;
 4. signs when `sign` is set, and checks each signature when `check_signature` is set. The key stays in the workstation's environment; the signing output is shown only when it fails, and written nowhere;
-5. copies the artifacts to `.work/releases/<label>/`, with `SHA256SUMS` and `release.json`, and writes one line to the history.
+5. copies the artifacts to `.work/releases/<label>/`, with `SHA256SUMS` and `release.json`, and writes one line to the history;
+6. with `keep`, removes the releases past the latest `keep`, by the moment each was built.
 
 Publishing (a tag, a store, a download page) is the person's decision. The factory reports the folder and the fingerprints, then waits for their word.

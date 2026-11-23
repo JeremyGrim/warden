@@ -1,9 +1,20 @@
 # Changelog
 
-## Unreleased
+## 0.4.8 - 2026-11-23
+
+Five options a project with its own long-standing rules needs before it moves under Warden.
+
+### Added
+
+- **Only the factory pushes to the main branch.** Once `git config warden.factory` names the factory tree, the push hook refuses a push to the main branch from any other tree, before it takes the slot, and says to dock. Before, the rule was written in AGENTS.md and the skills, and nothing checked it. With no factory declared, nothing changes.
+- **A provenance file with names of its own**: `provenance.keys` gives the names the file uses for `elements`, `sources`, `origin`, `revision`, `path` and `"new"` (`{ "origin": "origine", "path": "chemin", "new": "neuf" }`). The message of an incomplete origin names them.
+- **A registry in the shape of a product catalogue**: `registry.lists` gives the paths where the file names its components (`modules[].elements`, `benches`; `categories.*` by default), and `registry.names: "folder"` says it names them by folder alone, not `zone/name`.
+- **The Cargo profiles of the CPU priority**: `train.cargo_profiles` lists the profiles whose binaries count as builds during a train, besides `deps`.
+- **A release built outside the repository, and the latest kept**: `release.tree: "clone"` builds in a fresh clone outside the repository (`git config warden.releaseDir`, else the system's temporary folder), with its own Cargo target, deleted once the artifacts are copied; nothing untracked of the root reaches the build. `release.keep` removes the releases past the latest ones, by the moment each was built. `release.json` says where it was built (`built_in`).
 
 ### Changed
 
+- The default Cargo profiles of the CPU priority are `debug` and `release`; `preview` is no longer in them. A project that builds with it names it in `train.cargo_profiles`.
 - **Warden is ruled by its own kit**, like any project: `scripts/warden/` (the last released kit) and `config/` at the root, the kit's commit and push hooks, `npm test` declared as the check of the kit, the tools, the session hook and the manifests, the end-to-end trial in `verify.all`, and one version across the Claude Code manifest, the Codex manifest and `kit.json`. After a release, `node tools/install.mjs .` brings it to the new kit.
 
 ## 0.4.7 - 2026-11-23

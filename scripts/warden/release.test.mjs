@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { matchArtifacts, sha256, sumsText, withFile } from './release.mjs';
+import { beyondKept, matchArtifacts, sha256, sumsText, withFile } from './release.mjs';
 
 test('a release names its artifacts by path, or by a star in the last segment', (t) => {
   const root = mkdtempSync(join(tmpdir(), 'release-'));
@@ -25,4 +25,15 @@ test('the fingerprints are written as sha256sum reads them', (t) => {
 
 test('the signature check receives each artifact in place of {file}', () => {
   assert.deepEqual(withFile(['signtool', 'verify', '/pa', '{file}'], 'C:/r/app.msi'), ['signtool', 'verify', '/pa', 'C:/r/app.msi']);
+});
+
+test('only the latest releases are kept, by the moment each was built', () => {
+  const releases = [
+    { label: 'v0.1.10', at: '2026-11-20T10:00:00.000Z' },
+    { label: 'v0.1.9', at: '2026-11-22T10:00:00.000Z' },
+    { label: 'failed', at: '2026-11-18T10:00:00.000Z' },
+    { label: 'v0.1.11', at: '2026-11-23T10:00:00.000Z' },
+  ];
+  assert.deepEqual(beyondKept(releases, 2), ['v0.1.10', 'failed'], 'by date, never by label');
+  assert.deepEqual(beyondKept(releases, 9), []);
 });

@@ -23,13 +23,16 @@ export const FACTORY_DEFAULTS = {
     branch: 'warden-train', dock: 'train-ready', max_batch: 4, install: null, build: null, min_free_memory_gib: 8, memory_per_job_gib: 2,
     // A halted train tries again after `retry_minutes`; past `halt_notice_minutes`, `watch` says it once.
     retry_minutes: 10, halt_notice_minutes: 30,
+    // The Cargo profiles whose binaries count as builds for the CPU priority (`target/<profile>/`).
+    cargo_profiles: ['debug', 'release'],
   },
   history: { keep_days: 90 },
   // The version line the factory bumps within (`"0.4"`, a string), and the manifests when the usual ones are not
   // enough (`files`: `{ file, read }`). Null: the line is the current major.minor (version.mjs).
   version: null,
   // The factory's release: `build` (a command), `artifacts` (paths, `*` in the last segment), `sign` and
-  // `check_signature` (optional commands; `{file}` is each artifact). Null: no release.
+  // `check_signature` (optional commands; `{file}` is each artifact), `tree` (`worktree` by default, or `clone`: a fresh
+  // clone outside the repository) and `keep` (the latest releases kept). Null: no release.
   release: null,
   // What the factory may commit itself, on its own branch taken with `--with`: everything else goes back to the author.
   fixes: ['version', 'lock', 'generated'],
@@ -57,6 +60,9 @@ export function readFactory(root = ROOT) {
     history: { ...D.history, ...given.history },
   };
 }
+
+// Two paths name the same tree, whatever their separators and case.
+export const sameTree = (a, b) => resolve(a).toLowerCase() === resolve(b).toLowerCase();
 
 // A workstation setting, never committed: `git config warden.<key>`.
 export function stationSetting(key, root = ROOT) {

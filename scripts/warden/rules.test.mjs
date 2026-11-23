@@ -8,6 +8,7 @@ import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { namesAt } from './checks.mjs';
 import { checkFiles, compile, countLines, nodeBoundaries, readVersion, rustBoundaries, staleLock } from './rules.mjs';
 
 const KIT = dirname(fileURLToPath(import.meta.url));
@@ -168,6 +169,19 @@ test('every element of a zone declares its provenance', () => {
   assert.deepEqual(rulesOf(findingsOf(card({ 'crates/absent': { origin: 'new' } }), [], rules)), ['provenance']);
 });
 
+test('a provenance file with names of its own is read by them', () => {
+  const keys = { origin: 'origine', path: 'chemin', new: 'neuf' };
+  const rules = withRules({ provenance: { file: 'config/provenance.json', zones: ['crates'], keys } });
+  const card = (elements) => ({ 'config/provenance.json': JSON.stringify({ sources: { amont: 'https://example.test/amont.git' }, elements }) });
+  const crate = { 'crates/a/Cargo.toml': 'x', 'crates/b/Cargo.toml': 'x' };
+  assert.deepEqual(rulesOf(findingsOf({ ...crate, ...card({ 'crates/a': { origine: 'neuf' }, 'crates/b': { origine: 'amont', revision: 'abc', chemin: 'b' } }) }, [], rules)), []);
+  const incomplete = findingsOf({ ...crate, ...card({ 'crates/a': { origine: 'neuf' }, 'crates/b': { origine: 'amont', revision: 'abc', path: 'b' } }) }, [], rules);
+  assert.deepEqual([rulesOf(incomplete), incomplete[0].path], [['provenance'], 'crates/b'], 'the default name no longer counts');
+  assert.match(incomplete[0].message, /origine.*chemin.*neuf/, 'the message names the file\'s own keys');
+  const defaults = withRules({ provenance: { file: 'config/provenance.json', zones: ['crates'] } });
+  assert.deepEqual(rulesOf(findingsOf({ ...crate, ...card({ 'crates/a': { origine: 'neuf' }, 'crates/b': { origine: 'neuf' } }) }, [], defaults)), ['provenance', 'provenance'], 'without keys, origin and new: both are incomplete');
+});
+
 test('every component has its place in the registry, and the registry names only what exists', () => {
   const rules = withRules({ registry: { file: 'config/registry.json', zones: ['crates', 'packages'] } });
   const registry = (categories) => ({ 'config/registry.json': JSON.stringify({ categories }) });
@@ -177,6 +191,27 @@ test('every component has its place in the registry, and the registry names only
   assert.deepEqual([rulesOf(missing), missing[0].path], [['registry'], 'packages/b']);
   const absent = findingsOf({ ...repo, ...registry({ core: ['crates/a', 'packages/b', 'crates/gone'] }) }, [], rules);
   assert.deepEqual([rulesOf(absent), absent[0].path], [['registry'], 'crates/gone']);
+  assert.match(missing[0].message, /core/, 'the message names the categories');
+});
+
+test('a product catalogue is read where it lists its components, by folder name', () => {
+  const rules = withRules({ registry: { file: 'res/catalog.json', zones: ['crates', 'modules'], lists: ['modules[].elements', 'benches'], names: 'folder' }, root: { ...DATA.root, dirs: [...DATA.root.dirs, 'modules', 'res'] } });
+  const catalog = (modules, benches) => ({ 'res/catalog.json': JSON.stringify({ version: 2, modules, benches }) });
+  const repo = { 'crates/core/Cargo.toml': 'x', 'modules/notes/Cargo.toml': 'x', 'crates/bench-a/Cargo.toml': 'x' };
+  assert.deepEqual(rulesOf(findingsOf({ ...repo, ...catalog([{ id: 'base', elements: ['core'] }, { id: 'notes', elements: ['notes'] }], ['bench-a']) }, [], rules)), []);
+  const missing = findingsOf({ ...repo, ...catalog([{ id: 'base', elements: ['core'] }], ['bench-a']) }, [], rules);
+  assert.deepEqual([rulesOf(missing), missing[0].path], [['registry'], 'notes']);
+  assert.match(missing[0].message, /modules\[\]\.elements, benches/, 'the message names the lists');
+  const absent = findingsOf({ ...repo, ...catalog([{ id: 'base', elements: ['core', 'notes'] }], ['bench-a', 'gone']) }, [], rules);
+  assert.deepEqual([rulesOf(absent), absent[0].path], [['registry'], 'gone']);
+});
+
+test('names are read at a path of lists, objects and keys', () => {
+  const value = { categories: { core: ['a', 'b'], bench: ['c'] }, modules: [{ elements: ['d'] }, { elements: ['e', 3] }, {}], flat: 'f' };
+  assert.deepEqual(namesAt(value, 'categories.*'), ['a', 'b', 'c']);
+  assert.deepEqual(namesAt(value, 'modules[].elements'), ['d', 'e'], 'what is not a string is not a name');
+  assert.deepEqual(namesAt(value, 'flat'), ['f']);
+  assert.deepEqual(namesAt(value, 'nothing[].here'), []);
 });
 
 test('a debt lives only in its file, and its file never grows', () => {

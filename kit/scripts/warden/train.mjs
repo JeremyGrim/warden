@@ -21,7 +21,7 @@ import { availableParallelism, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { FACTORY_DEFAULTS, readFactory, ROOT, run, runCaptured, stationSetting } from './config.mjs';
+import { FACTORY_DEFAULTS, readFactory, ROOT, run, runCaptured, sameTree, stationSetting } from './config.mjs';
 import { freeMemory, stationProcesses } from './disk.mjs';
 import { clearHalt, clearRefusal, clearTrain, continuedHalt, dockFolder, dockKey, haltHolds, readDock, readHalt, readyDeposits, whileHalted, writeHalt, writeRefusal, writeTrain } from './dock.mjs';
 import { appendHistory, historyPath } from './history.mjs';
@@ -116,7 +116,6 @@ function must(args) {
 const clockTime = () => new Date().toTimeString().slice(0, 5);
 const stamp = () => new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
 const fileList = (files) => (files.length ? `: ${files.slice(0, 4).join(', ')}` : '');
-const sameTree = (a, b) => resolve(a).toLowerCase() === resolve(b).toLowerCase();
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 
 const alive = (pid) => {
@@ -603,10 +602,11 @@ async function watch(factory) {
 // While the train lives: one pass every 10 seconds. When it ends, the previous priorities come back.
 async function keepPriority(pid) {
   const others = projectTrees(stationTrees(ROOT));
+  const profiles = readFactory().train.cargo_profiles;
   const kept = new Map();
   while (alive(pid)) {
     const processes = stationProcesses();
-    if (processes) adjust(processes, ROOT, kept, { others });
+    if (processes) adjust(processes, ROOT, kept, { others, profiles });
     await sleep(10 * 1000);
   }
   restorePriorities(kept);

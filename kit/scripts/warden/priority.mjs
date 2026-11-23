@@ -7,10 +7,15 @@
 import { spawnSync } from 'node:child_process';
 import { constants, getPriority, setPriority } from 'node:os';
 
+import { FACTORY_DEFAULTS } from './config.mjs';
 import { BUILD_TOOLS, inTree } from './disk.mjs';
 
-const BUILD_BINARY = /[\\/]target[\\/].*[\\/](deps|debug|release|preview)[\\/][^\\/]+$/i;
 const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// A binary a build runs: under `target/`, in `deps` or in the folder of a Cargo profile. `debug` and `release` by
+// default; a project with profiles of its own names them in `train.cargo_profiles`.
+export const buildBinary = (profiles = FACTORY_DEFAULTS.train.cargo_profiles) =>
+  new RegExp(String.raw`[\\/]target[\\/].*[\\/](deps|${profiles.map(escape).join('|')})[\\/][^\\/]+$`, 'i');
 
 // The project's trees, as a pattern over command lines: a line belongs to one of them when it names a path inside it.
 // The whole path is matched, never a bare folder name: a name convention missed agent trees named otherwise, and a
@@ -33,15 +38,16 @@ export function stationTrees(root) {
 
 // Whose each build process is: 'train', 'other' or '' (unknown). By its own command line, otherwise by its descendants
 // (cargo does not name its tree, its rustc do), otherwise by its ancestors.
-export function classify(processes, root, others = projectTrees(stationTrees(root))) {
+export function classify(processes, root, others = projectTrees(stationTrees(root)), profiles = undefined) {
   const ofTrain = inTree(root);
+  const binary = buildBinary(profiles);
   const kind = (text) => (!text ? '' : ofTrain(text) ? 'train' : others.test(text) ? 'other' : '');
   const byId = new Map(processes.map((p) => [p.pid, p]));
   const children = new Map();
   for (const p of processes) children.set(p.parent, [...(children.get(p.parent) ?? []), p.pid]);
   const result = new Map();
   for (const p of processes) {
-    if (!BUILD_TOOLS.test(p.name) && !BUILD_BINARY.test(p.executable ?? '')) continue;
+    if (!BUILD_TOOLS.test(p.name) && !binary.test(p.executable ?? '')) continue;
     let k = kind(`${p.line} ${p.executable ?? ''}`);
     const queue = [...(children.get(p.pid) ?? [])];
     for (let n = 0; !k && queue.length && n < 300; n += 1) {
@@ -61,8 +67,8 @@ export function classify(processes, root, others = projectTrees(stationTrees(roo
 const WANTED = { train: constants.priority.PRIORITY_ABOVE_NORMAL, other: constants.priority.PRIORITY_LOW };
 
 // One pass: sets the priority of each classified process, and keeps the previous priority to give it back.
-export function adjust(processes, root, kept, { read = getPriority, set = setPriority, others } = {}) {
-  for (const [pid, k] of classify(processes, root, others)) {
+export function adjust(processes, root, kept, { read = getPriority, set = setPriority, others, profiles } = {}) {
+  for (const [pid, k] of classify(processes, root, others, profiles)) {
     const wanted = WANTED[k];
     if (wanted === undefined) continue;
     try {

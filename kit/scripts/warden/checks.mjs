@@ -172,18 +172,26 @@ export function elementsOf(all, zones) {
   return elements;
 }
 
+// The names a provenance file uses, when it has its own (`"keys": { "origin": "origine", "new": "neuf" }`).
+export const PROVENANCE_KEYS = { elements: 'elements', sources: 'sources', origin: 'origin', revision: 'revision', path: 'path', new: 'new' };
+
 function checkProvenance(all, rules, read, report) {
   const section = rules.provenance;
   if (!section) return;
+  const k = { ...PROVENANCE_KEYS, ...section.keys };
   const present = elementsOf(all, section.zones);
   const content = all.includes(section.file) ? read(section.file) : null;
-  const provenance = content ? JSON.parse(content.toString('utf8')) : { elements: {}, sources: {} };
+  const provenance = content ? JSON.parse(content.toString('utf8')) : {};
+  const elements = provenance[k.elements] ?? {};
+  const sources = provenance[k.sources] ?? {};
   for (const element of present) {
-    const card = provenance.elements[element];
+    const card = elements[element];
     if (!card) report('provenance', element, t('provenance.missing', { file: section.file }));
-    else if (card.origin !== 'new' && !(provenance.sources[card.origin] && card.revision && card.path)) report('provenance', element, t('provenance.incomplete'));
+    else if (card[k.origin] !== k.new && !(sources[card[k.origin]] && card[k.revision] && card[k.path])) {
+      report('provenance', element, t('provenance.incomplete', { origin: k.origin, revision: k.revision, path: k.path, new: k.new }));
+    }
   }
-  for (const element of Object.keys(provenance.elements)) {
+  for (const element of Object.keys(elements)) {
     if (!present.has(element)) report('provenance', element, t('provenance.absent', { file: section.file }));
   }
 }
@@ -203,16 +211,45 @@ function checkTestBinaries(all, rules, report) {
   }
 }
 
-// Every component has a declared place, and the declaration names only what is in the repository.
+// The strings a registry holds at a path: `a.b` a key, `a[]` each item of a list, `*` each value of an object
+// (`categories.*`, `modules[].elements`). A list found at the end gives its strings.
+export function namesAt(value, path) {
+  let found = [value];
+  for (const segment of path.split('.')) {
+    const each = segment.endsWith('[]');
+    const key = each ? segment.slice(0, -2) : segment;
+    found = found.flatMap((v) => {
+      if (!v || typeof v !== 'object') return [];
+      const got = key === '*' ? Object.values(v) : [v[key]];
+      return each ? got.flatMap((x) => (Array.isArray(x) ? x : [])) : got;
+    });
+  }
+  return found.flat().filter((x) => typeof x === 'string');
+}
+
+// Where a missing component may go, as the message names it: the keys under a `*`, else the path itself.
+function placesOf(value, paths) {
+  return paths.flatMap((path) => {
+    if (!path.endsWith('.*')) return [path];
+    const parent = path.slice(0, -2).split('.').reduce((v, key) => (v && typeof v === 'object' ? v[key] : undefined), value);
+    return parent && typeof parent === 'object' ? Object.keys(parent) : [];
+  });
+}
+
+// Every component has a declared place, and the declaration names only what is in the repository. The registry lists
+// `zone/name` by default; with `"names": "folder"`, the folder name alone, as a product catalogue does.
 function checkRegistry(all, rules, read, report) {
   const section = rules.registry;
   if (!section) return;
-  const present = elementsOf(all, section.zones);
+  const lists = section.lists ?? ['categories.*'];
+  const byFolder = section.names === 'folder';
+  const present = new Set([...elementsOf(all, section.zones)].map((e) => (byFolder ? e.split('/')[1] : e)));
   const content = all.includes(section.file) ? read(section.file) : null;
-  const categories = content ? JSON.parse(content.toString('utf8')).categories ?? {} : {};
-  const filed = new Set(Object.values(categories).flat());
+  const registry = content ? JSON.parse(content.toString('utf8')) : {};
+  const filed = new Set(lists.flatMap((path) => namesAt(registry, path)));
+  const places = placesOf(registry, lists).join(', ') || '…';
   for (const element of present) {
-    if (!filed.has(element)) report('registry', element, t('registry.missing', { file: section.file, categories: Object.keys(categories).join(', ') || '…' }));
+    if (!filed.has(element)) report('registry', element, t('registry.missing', { file: section.file, categories: places }));
   }
   for (const element of filed) {
     if (!present.has(element)) report('registry', element, t('registry.absent', { file: section.file }));

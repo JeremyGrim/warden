@@ -104,10 +104,13 @@ const FACTORY = object({
     memory_per_job_gib: number(0),
     retry_minutes: number(0),
     halt_notice_minutes: number(0),
+    cargo_profiles: list(string),
   }),
   history: object({ keep_days: int(1) }),
   version: nullable(object({ line, files: list(object({ file: string, read: reading }, ['file', 'read'])) })),
-  release: nullable(object({ build: command, artifacts: list(string), sign: nullable(command), check_signature: nullable(command) }, ['build', 'artifacts'])),
+  release: nullable(object({
+    build: command, artifacts: list(string), sign: nullable(command), check_signature: nullable(command), tree: oneOf('worktree', 'clone'), keep: int(1),
+  }, ['build', 'artifacts'])),
   fixes: list(oneOf('version', 'lock', 'generated', 'lint')),
 });
 

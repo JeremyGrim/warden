@@ -19,8 +19,8 @@ Nothing that describes a project is written in a kit script. The project describ
 | `versions` (`file`, `read`) | Two manifests that state two versions. `read` is `json:<key.key>` or `toml:<table.key>` |
 | `boundaries.rust`, `boundaries.node` | A zone that reaches a forbidden zone or package, even transitively |
 | `single_test_binary` (`zones`) | More than one integration test binary per crate |
-| `provenance` (`file`, `zones`) | An element with no declared origin, or a declared origin with no element |
-| `registry` (`file`, `zones`) | A component with no category, or a registry name absent from the repository |
+| `provenance` (`file`, `zones`, `keys`) | An element with no declared origin, or a declared origin with no element |
+| `registry` (`file`, `zones`, `lists`, `names`) | A component with no category, or a registry name absent from the repository |
 | `debts` (`name`, `root`, `pattern`, `file`, `must_not_grow`) | A debt file outside its single file; with `must_not_grow`, that file growing at commit |
 | `chokepoints` (`name`, `zones`, `extensions`, `pattern`, `message`, `exceptions`) | What must go through its source (an interface text, a colour) written inline in its zone |
 
@@ -40,6 +40,27 @@ A boundary rule:
 ```
 
 An `except` list only shrinks: an exception that no longer serves is refused.
+
+A provenance file declares `sources` and `elements`; each element has an `origin` (a source, with its `revision` and `path`, or `"new"`). A file that names them otherwise gives its own names in `keys`; the others keep theirs:
+
+```json
+"provenance": {
+  "file": "config/provenance.json",
+  "zones": ["crates", "modules", "vendor"],
+  "keys": { "origin": "origine", "path": "chemin", "new": "neuf" }
+}
+```
+
+A registry lists `zone/name` entries under `categories`, by default. A catalogue that the product reads keeps its own shape: `lists` gives the paths where it names its components (`a.b` a key, `a[]` each item of a list, `*` each value of an object; the default is `categories.*`), and `"names": "folder"` says it names them by folder alone:
+
+```json
+"registry": {
+  "file": "crates/core/resources/catalog.json",
+  "zones": ["crates", "modules"],
+  "lists": ["modules[].elements", "benches"],
+  "names": "folder"
+}
+```
 
 The `docs` doctrine, as the repository Warden comes from checks it:
 
@@ -76,10 +97,11 @@ The `secrets` model admits one fictitious user name in test paths: `person`, its
 | `train.memory_per_job_gib` | The memory a build job may take: the train's jobs are bounded by it (2) |
 | `train.retry_minutes` | A train halted by an incident tries again this long after the latest train that met it, or sooner when the dock changes (10) |
 | `train.halt_notice_minutes` | Past this delay since the halt began, `watch` says it once, with exit code 75 (30) |
+| `train.cargo_profiles` | The Cargo profiles whose binaries count as builds for the CPU priority during a train, besides `deps` (`["debug", "release"]`). Name a project's own profiles here |
 | `version.line` | The version line the factory bumps within, as a string (`"0.4"`). Absent: the current major.minor. Leaving it is the person's decision, by changing this key |
 | `version.files` | The manifests that carry the version, `{ file, read }` as in `versions` of `config/rules.json`. Absent: `versions` of the rules, else `package.json`, `Cargo.toml` and `.claude-plugin/plugin.json` |
 | `history.keep_days` | The local history keeps this many days once it passes 512 KiB (90) |
-| `release` | `build` (a command), `artifacts` (paths, `*` in the last segment), optional `sign` (a command) and `check_signature` (a command where `{file}` is each artifact). See [factory-guide.md](factory-guide.md#release) |
+| `release` | `build` (a command), `artifacts` (paths, `*` in the last segment), optional `sign` (a command) and `check_signature` (a command where `{file}` is each artifact), `tree` (`worktree` by default, or `clone`: a fresh clone outside the repository, deleted after), `keep` (the latest releases kept; absent, all). See [factory-guide.md](factory-guide.md#release) |
 | `fixes` | What the factory may commit itself, on its own branch: `version`, `lock`, `generated`, `lint`. Default: the first three |
 
 Every default comes from one workstation: size them for yours.
@@ -112,7 +134,8 @@ Without `--from`, the text is read from the standard input. `deposit` checks the
 
 | Setting | Meaning |
 |---|---|
-| `git config warden.factory <path>` | The factory tree. The train runs only there |
+| `git config warden.factory <path>` | The factory tree. The train runs only there, and only it pushes to the main branch: a push to it from any other tree is refused |
+| `git config warden.releaseDir <folder>` | Where a release with `"tree": "clone"` makes its clone (the system's temporary folder by default) |
 | `git config --add warden.agentTrees <folder>` | A folder that holds agent trees outside the clone's worktrees: their builds go to low priority during a train |
 | `git config warden.slot <folder>` | The slot folder, for a clone that is not a worktree of the main root |
 | `git config warden.tasks <tool>` | The task tool, following the five-gesture contract |
