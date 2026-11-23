@@ -63,10 +63,12 @@ export function notices({ kit, plugin, hooks, source, locale = 'en', host = 'cla
   return lines;
 }
 
-// The record of the plugin version seen in a clone: the same version keeps the moment it was first seen.
-export function pluginRecord(previous, version, now = new Date().toISOString()) {
+// The record of the plugin seen in a clone: its version, the moment it was first seen, and its folder, where the
+// interface finds the plugin's kit to update a project with. The same version keeps its moment.
+export function pluginRecord(previous, version, now = new Date().toISOString(), root = null) {
   if (!version) return null;
-  return previous?.version === version ? null : { version, since: now };
+  if (previous?.version === version && (previous.root ?? null) === root) return null;
+  return { version, since: previous?.version === version ? previous.since : now, ...(root ? { root } : {}) };
 }
 
 function main() {
@@ -88,7 +90,7 @@ function main() {
   const plugin = read(join(PLUGIN, '.claude-plugin', 'plugin.json'));
   const common = spawnSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], { cwd: root, encoding: 'utf8', windowsHide: true }).stdout?.trim();
   if (common && existsSync(common)) {
-    const record = pluginRecord(read(join(common, PLUGIN_RECORD)), plugin?.version);
+    const record = pluginRecord(read(join(common, PLUGIN_RECORD)), plugin?.version, undefined, PLUGIN);
     try {
       if (record) writeFileSync(join(common, PLUGIN_RECORD), `${JSON.stringify(record, null, 2)}\n`);
     } catch {

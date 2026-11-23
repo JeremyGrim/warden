@@ -49,6 +49,7 @@ Never waiting for the person: a refusal (its author fixes it), a red main branch
 | The cleanup of one other tree of the clone, listed then applied | `disk.mjs clean --tree <tree> [--deep] [--apply]` | the project |
 | Answer a decision of the factory | `decision.mjs answer <id> [--choice <n>] [--note <text>]` | the project |
 | Deposit a change of `config/factory.json`, `rules.json` or `disk.json` | `change.mjs deposit <file> [--message <text>]`, the text written in the page on its input | the project |
+| Update the kit to the newest one of the workstation | `<newest kit>/kit-update.mjs deposit --project <project>` | the project |
 | Read the version | `version.mjs show` | the project |
 | Build a release of a commit of the main branch | `release.mjs build --commit <sha>` | the factory tree, slot free |
 | Turn the hooks on | `git config core.hooksPath .githooks` | the clone |
@@ -59,6 +60,7 @@ The page shows the command, the tree it runs in, its output and its exit code. I
 
 - **Cleaning one tree.** Only a tree of the clone, or a tree of a folder declared with `warden.agentTrees`; never the factory tree (it cleans itself), never the tree the command runs from beside it, never the workstation roots. What it removes regenerates; `--deep` removes `target` and `node_modules`. It refuses while a build runs in that tree.
 - **A decision of the factory.** The factory raises a product choice it may not take (`decision.mjs raise`): a title, a question, a few options, and a file of the work folder for context. The person answers with an option, a note, or both, and may change the answer until the factory acts on it and closes the decision.
+- **Updating the kit** is one click in Health › Kit and hooks, when a newer kit of the workstation can install itself (`kit-update.mjs`, from 0.4.9): a project's own kit, or the plugin's, whose folder its session hook leaves in the clone. The server picks that kit; the page never names a path. Its script makes a tree of its own from the remote main branch, replaces `scripts/warden/` with itself, commits `Warden kit <new>, from <old>` on `warden/kit-<version>-<moment>` under the hooks, and docks it (`kit.txt`). The train takes it to the main branch through every check, the kit tests included. It refuses a kit on the main branch that was edited, a kit that is not older, a source kit that differs from its own `kit.json`, and a second update while the first waits for the train. Only `scripts/warden/` changes: a first install and the models go through `warden setup`.
 - **A change of the project configuration** goes the way every change goes. The page checks the text against the shape of the file (`change.mjs check`, `schema.mjs`): a wrong type, a missing key or a pattern that does not compile is an error and blocks; a key the kit does not read is said. The deposit commits it on a branch of its own (`warden/config-<file>-<moment>`), in a tree of its own made from the remote main branch and removed after, under the hooks, and docks it (`config-<file>.txt`). The train takes it to the main branch through every check. Nothing is pushed by the gesture, and no tree changes branch. A refused change is replaced by depositing again; a change still waiting for the train is never overwritten.
 
 ## Security
@@ -70,4 +72,4 @@ The page shows the command, the tree it runs in, its output and its exit code. I
 
 ## The plugin version
 
-The kit does not carry the plugin. The plugin's session hook leaves the plugin version in the clone's Git folder (`warden-plugin.json`: the version and since when), written only when it changes; the page reads it there. Until a session of the plugin 0.4.4 or later opens in a clone, the page says it does not know, and compares the kit with the newest kit of the workstation.
+The kit does not carry the plugin. The plugin's session hook leaves the plugin version in the clone's Git folder (`warden-plugin.json`: the version, since when, and from 0.4.9 the plugin's folder), written only when it changes; the page reads it there, and takes the plugin's kit to update a project with. Until a session of the plugin 0.4.4 or later opens in a clone, the page says it does not know, and compares the kit with the newest kit of the workstation.

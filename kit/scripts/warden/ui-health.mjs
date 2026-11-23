@@ -163,6 +163,12 @@ function kitView(ctx, d) {
   const newest = ctx.data?.newest_kit ?? null;
   const fromPlugin = ctx.data?.newest_from === 'plugin';
   const behind = Boolean(newest) && compareVersions(d.kit.version, newest) < 0;
+  // One click: the newest kit that can install itself docks itself for this project; the train takes it up.
+  const update = ctx.data?.update_kit ?? null;
+  const canUpdate = Boolean(update) && compareVersions(d.kit.version, update.version) < 0;
+  const updateCap = canUpdate
+    ? h('span', { class: 'mcap' }, btn(t('ui.gesture.kit_update', { version: update.version }), () => ctx.kitUpdate(d, update), { kind: 'p', small: true, fk: 'health:kit-update' }), h('span', null, t('ui.kit.update_cap')))
+    : null;
   const integrity = d.kit_integrity ?? { files: 0, changed: [], extra: [], missing: [] };
   const gaps = [...(integrity.changed ?? []).map((f) => ['changed', f]), ...(integrity.extra ?? []).map((f) => ['extra', f]), ...(integrity.missing ?? []).map((f) => ['missing', f])];
   const gapLabel = (kind) => ({ changed: t('ui.kit.changed'), extra: t('ui.kit.extra'), missing: t('ui.kit.missing') })[kind];
@@ -172,10 +178,12 @@ function kitView(ctx, d) {
   return [
     box(
       measure(t('ui.col.kit'), `${d.kit.name} ${d.kit.version}`, { mono: true }),
-      measure(t('ui.kit.newest'), newest ?? '—', {
-        mono: true, tone: behind ? 'todo' : null, toneLabel: t('ui.kit.behind'),
-        cap: [fromPlugin ? t('ui.kit.newest_cap_plugin') : t('ui.kit.newest_cap'), behind ? t('ui.kit.behind_text') : ''].filter(Boolean).join(' · '),
-      }),
+      canUpdate
+        ? h('div', { class: 'mrow' }, h('span', { class: 'k' }, t('ui.kit.newest')), h('span', { class: 'mv' }, badge('todo', t('ui.kit.behind')), h('span', { class: 'mono wrap' }, newest ?? update.version)), updateCap)
+        : measure(t('ui.kit.newest'), newest ?? '—', {
+          mono: true, tone: behind ? 'todo' : null, toneLabel: t('ui.kit.behind'),
+          cap: [fromPlugin ? t('ui.kit.newest_cap_plugin') : t('ui.kit.newest_cap'), behind ? t('ui.kit.behind_text') : ''].filter(Boolean).join(' · '),
+        }),
       pluginRow(d),
       measure(t('ui.kit.integrity'), gaps.length ? t('ui.kit.integrity_gaps', { n: gaps.length, files: integrity.files }) : t('ui.kit.integrity_ok', { files: integrity.files }), { tone: gaps.length ? 'todo' : 'ok', toneLabel: gaps.length ? t('ui.kit.integrity_bad') : t('ui.kit.integrity_good') }),
       hooks,

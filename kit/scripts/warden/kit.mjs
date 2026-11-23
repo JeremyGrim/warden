@@ -32,3 +32,11 @@ export function manifestGaps(folder, manifest) {
     missing: Object.keys(expected).filter((name) => !(name in present)),
   };
 }
+
+// -1, 0 or 1 between two "a.b.c" versions; an unreadable one counts as 0.0.0.
+export function compareVersions(a, b) {
+  const parts = (v) => String(v ?? '0.0.0').split('.').map((n) => Number.parseInt(n, 10) || 0);
+  const [x, y] = [parts(a), parts(b)];
+  for (let i = 0; i < 3; i += 1) if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) < (y[i] ?? 0) ? -1 : 1;
+  return 0;
+}

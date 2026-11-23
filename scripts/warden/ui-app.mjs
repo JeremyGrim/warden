@@ -250,6 +250,7 @@ const ctxActions = {
   form: (spec) => openForm(spec),
   mark,
   hooksOn: (project) => runGesture({ project, gesture: 'hooks.on', args: {}, title: t('ui.gesture.hooks_on'), command: 'git config core.hooksPath .githooks', cwd: project.path }),
+  kitUpdate: (project, update) => runGesture({ project, gesture: 'kit.update', args: {}, title: t('ui.gesture.kit_update', { version: update.version }), command: 'node <kit>/kit-update.mjs deposit --project <project>', cwd: project.path }),
   toggleAdd: (open) => {
     ui.addOpen = open;
     renderMain();

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.9 - 2026-11-23
+
+### Added
+
+- **Updating the kit in one click**, from Health › Kit and hooks: when a newer kit of the workstation can install itself, a button docks it for the project. `kit-update.mjs` makes a tree of its own from the remote main branch, replaces `scripts/warden/` with the newest kit, commits it on a branch of its own under the hooks and deposits `kit.txt`; the train takes it up through every check, the kit tests included. Nothing is pushed, no tree changes branch. It refuses a kit edited on the main branch, a kit that is not older, a source kit that differs from its manifest, and a second update while the first waits. The newest kit is a project's own or the plugin's: the server picks it, the page never names a path. The first kit that can do it is 0.4.9: a kit before it is updated once more by `warden setup`, or by a project whose kit is 0.4.9 or later.
+- The plugin's session hook leaves the plugin's folder beside its version in the clone (`warden-plugin.json`), where the interface finds the plugin's kit.
+
 ## 0.4.8 - 2026-11-23
 
 Five options a project with its own long-standing rules needs before it moves under Warden.

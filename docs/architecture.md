@@ -35,6 +35,7 @@ warden (this repository)
 | `dock.mjs` | The dock: deposits, refusals, the halt |
 | `train.mjs` | The train |
 | `release.mjs` | A release of a commit of the main branch, in its own tree, fingerprinted |
+| `kit-update.mjs` | The kit installing itself in a project, on a branch of its own docked for the train: the interface's one-click update |
 | `version.mjs` | The version of every manifest, and its patch bump within the line, on the factory's own branch |
 | `schema.mjs`, `change.mjs` | The shape of the project configuration; a change of it checked, committed in a tree of its own and docked |
 | `decision.mjs` | The decisions the factory raises and the person answers, in the work folder |

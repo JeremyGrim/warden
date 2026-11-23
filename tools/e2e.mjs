@@ -15,7 +15,7 @@
 
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -554,11 +554,29 @@ async function nodeOnly() {
       const hook = spawnSync(process.execPath, [join(REPO, 'hooks', 'session-start.mjs')], { input: JSON.stringify({ cwd: root, source: 'resume' }), encoding: 'utf8', env: ENV, windowsHide: true });
       const record = readJson(join(root, '.git', 'warden-plugin.json'));
       const seen = (await json('/api/projects')).projects.find((p) => p.here);
-      check('the session hook of the plugin leaves its version in the clone, and the page reads it', hook.status === 0 && record?.version === PLUGIN.version && seen.plugin?.version === PLUGIN.version, JSON.stringify(record));
-      // A plugin newer than the kit: the record a later plugin would leave.
-      writeFileSync(join(root, '.git', 'warden-plugin.json'), `${JSON.stringify({ version: '9.9.9', since: record?.since })}\n`);
-      const behind = (await json('/api/projects')).cases.find((c) => c.kind === 'kit_behind' && c.project === seen.path);
+      check('the session hook of the plugin leaves its version and its folder in the clone, and the page reads it', hook.status === 0 && record?.version === PLUGIN.version && record.root === REPO && seen.plugin?.version === PLUGIN.version, JSON.stringify(record));
+      // A plugin newer than the kit, with its kit: the record and the folder a later plugin would leave.
+      const newer = join(TRAY, 'plugin-9.9.9');
+      cpSync(join(REPO, 'kit', 'scripts', 'warden'), join(newer, 'kit', 'scripts', 'warden'), { recursive: true });
+      const newerManifest = join(newer, 'kit', 'scripts', 'warden', 'kit.json');
+      writeFileSync(newerManifest, `${JSON.stringify({ ...readJson(newerManifest), version: '9.9.9' }, null, 2)}\n`);
+      writeFileSync(join(root, '.git', 'warden-plugin.json'), `${JSON.stringify({ version: '9.9.9', since: record?.since, root: newer })}\n`);
+      const offered = await json('/api/projects');
+      const behind = offered.cases.find((c) => c.kind === 'kit_behind' && c.project === seen.path);
       check('a kit behind the plugin waits for the person, said as such', behind?.vars.from === 'plugin' && behind.vars.newest === '9.9.9', JSON.stringify(behind));
+
+      currentStep = 'B. The person updates a kit with one click, and the train takes it up';
+      check('the page offers the update from the newest kit that can install itself', offered.update_kit?.version === '9.9.9' && offered.update_kit.from === 'plugin', JSON.stringify(offered.update_kit));
+      const rustNode = join(TRAY, 'rust-node');
+      const kitOnMain = () => JSON.parse(run('git', ['--git-dir', join(TRAY, 'rust-node.git'), 'show', 'main:scripts/warden/kit.json'], TRAY).text || '{}').version;
+      const clicked = await run_(rustNode, 'kit.update');
+      const kitDeposit = join(rustNode, '.work', 'train-ready', 'kit.txt');
+      check('one click commits the kit on a branch of its own and docks it; no tree changes branch, nothing is pushed', clicked.code === 0 && existsSync(kitDeposit) && /kit-update\.mjs deposit --project/.test(clicked.command) && kitOnMain() === PLUGIN.version && !existsSync(join(rustNode, '.work', 'kit-tree')), JSON.stringify(clicked));
+      const second = await run_(rustNode, 'kit.update');
+      check('a second click waits for the first update', second.code !== 0 && /waits for the train/.test(second.output), second.output);
+      const kitTrain = node(rustNode, 'scripts/warden/train.mjs', 'run', '--agent', 'factory');
+      check('the train takes the kit up through its checks', kitTrain.status === 0 && kitOnMain() === '9.9.9' && !existsSync(kitDeposit), kitTrain.log);
+      await slotReleased(rustNode);
     } finally {
       child.kill();
     }

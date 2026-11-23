@@ -40,4 +40,6 @@ test('the plugin version is recorded when it changes, and keeps the moment it wa
   assert.equal(pluginRecord({ version: '0.4.4', since: 'before' }, '0.4.4', 'now'), null, 'nothing to write');
   assert.deepEqual(pluginRecord({ version: '0.4.3', since: 'before' }, '0.4.4', 'now'), { version: '0.4.4', since: 'now' });
   assert.equal(pluginRecord(null, undefined), null, 'a plugin with no version writes nothing');
+  assert.deepEqual(pluginRecord({ version: '0.4.9', since: 'before' }, '0.4.9', 'now', '/plugins/warden/0.4.9'), { version: '0.4.9', since: 'before', root: '/plugins/warden/0.4.9' }, 'its folder is added, its moment kept');
+  assert.equal(pluginRecord({ version: '0.4.9', since: 'before', root: '/p' }, '0.4.9', 'now', '/p'), null);
 });

@@ -9,7 +9,7 @@ import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { absentData, casesFor, compareVersions, gestureCommand, newestSeen, parseDeposit, projectEntries, startServer, workFile } from './ui.mjs';
+import { absentData, casesFor, compareVersions, gestureCommand, newestSeen, parseDeposit, projectEntries, startServer, updateSource, workFile } from './ui.mjs';
 
 const project = (fields = {}) => ({
   ok: true, path: '/p/alpha', kit: { version: '0.4.3' }, releases: [], state: { cases: {}, published: {} },
@@ -81,6 +81,28 @@ test('the newest version seen on the workstation is a kit\'s or the plugin\'s, t
   assert.equal(newestSeen([]), null);
   const behind = casesFor(project({ kit: { version: '0.4.3' } }), { newestKit: '0.4.4', newestFrom: 'plugin' });
   assert.deepEqual(behind.map((c) => c.vars.from), ['plugin']);
+});
+
+test('the kit that updates the others is the newest one that can install itself, a project\'s or the plugin\'s', () => {
+  const at = (...parts) => join(process.platform === 'win32' ? 'C:\\' : '/', ...parts);
+  const kits = {
+    [join(at('a'), 'scripts', 'warden')]: '0.4.9', [join(at('b'), 'scripts', 'warden')]: '0.4.10', [join(at('plugin'), 'kit', 'scripts', 'warden')]: '0.4.11',
+    [join(at('c'), 'scripts', 'warden')]: '0.4.12',
+  };
+  const read = (path) => (path.endsWith('kit.json') ? (kits[join(path, '..')] ? { version: kits[join(path, '..')] } : null) : path === 'record-a' ? { version: '0.4.11', root: at('plugin') } : null);
+  const exists = (path) => !path.startsWith(join(at('c'), 'scripts'));
+  const record = (path) => (path === at('a') ? 'record-a' : null);
+  const entries = [{ path: at('a') }, { path: at('b') }];
+  assert.deepEqual(updateSource(entries, { read, exists, record }), { version: '0.4.11', dir: join(at('plugin'), 'kit', 'scripts', 'warden'), from: 'plugin' });
+  assert.equal(updateSource([...entries, { path: at('c') }], { read, exists, record }).version, '0.4.11', 'a kit without kit-update.mjs installs nothing');
+  assert.equal(updateSource([{ path: at('b') }], { read, exists, record: () => null }).from, 'kit');
+  assert.equal(updateSource([], { read, exists, record }), null);
+  const source = { version: '0.4.9', dir: join(at('b'), 'scripts', 'warden'), from: 'kit' };
+  const update = gestureCommand('kit.update', {}, project({ path: at('p') }), { kitSource: source });
+  assert.deepEqual([update.args.slice(1), update.cwd], [['deposit', '--project', at('p')], at('p')]);
+  assert.equal(update.args[0], join(source.dir, 'kit-update.mjs'), 'the script of the newest kit, never of the project');
+  assert.throws(() => gestureCommand('kit.update', {}, project({ kit: { version: '0.4.9' } }), { kitSource: source }), /kit-update/, 'not newer');
+  assert.throws(() => gestureCommand('kit.update', {}, project()), /kit-update/, 'no source');
 });
 
 test('only the gestures that bypass nothing run, each in its own tree', () => {

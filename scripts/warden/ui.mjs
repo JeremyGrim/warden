@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url';
 
 import { ROOT } from './config.mjs';
 import { readDecisions } from './decision.mjs';
-import { manifestGaps, MANIFEST } from './kit.mjs';
+import { compareVersions, manifestGaps, MANIFEST } from './kit.mjs';
 import { CATALOGS, resolveLocale, t } from './messages.mjs';
 import { CONFIG_FILES } from './schema.mjs';
 
@@ -65,13 +65,7 @@ function readJson(path) {
   }
 }
 
-// -1, 0 or 1 between two "a.b.c" versions; an unreadable one counts as 0.0.0.
-export function compareVersions(a, b) {
-  const parts = (v) => String(v ?? '0.0.0').split('.').map((n) => Number.parseInt(n, 10) || 0);
-  const [x, y] = [parts(a), parts(b)];
-  for (let i = 0; i < 3; i += 1) if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) < (y[i] ?? 0) ? -1 : 1;
-  return 0;
-}
+export { compareVersions };
 
 // A script of a project's own kit, run in that project; its output as JSON, or null. `input` goes to its standard input;
 // `anyCode` keeps the output of a script that says a refusal by its exit code (change.mjs check).
@@ -237,6 +231,22 @@ export function newestSeen(projects) {
   return seen.sort((a, b) => compareVersions(a.version, b.version) || (a.from === 'plugin' ? 1 : -1)).at(-1) ?? null;
 }
 
+// The newest kit of the workstation that can install itself (kit-update.mjs, from 0.4.9): a project's own kit, or the
+// kit of the plugin whose session hook left its folder in a clone. The server picks it; the page never names a path.
+export function updateSource(entries, { read = readJson, exists = existsSync, record = (path) => gitFile(path, PLUGIN_RECORD) } = {}) {
+  const found = [];
+  const offer = (dir, from) => {
+    const kit = read(join(dir, MANIFEST));
+    if (kit?.version && exists(join(dir, 'kit-update.mjs'))) found.push({ version: kit.version, dir, from });
+  };
+  for (const entry of entries) {
+    offer(join(entry.path, 'scripts', 'warden'), 'kit');
+    const plugin = read(record(entry.path) ?? '');
+    if (typeof plugin?.root === 'string' && isAbsolute(plugin.root)) offer(join(plugin.root, 'kit', 'scripts', 'warden'), 'plugin');
+  }
+  return found.sort((a, b) => compareVersions(a.version, b.version) || (a.from === 'plugin' ? 1 : -1)).at(-1) ?? null;
+}
+
 export function casesFor(project, { newestKit = null, newestFrom = 'kit', disk = null } = {}) {
   if (!project.ok) return [];
   const state = project.state ?? { cases: {}, published: {} };
@@ -264,7 +274,7 @@ export function casesFor(project, { newestKit = null, newestFrom = 'kit', disk =
 }
 
 // A gesture as the person asks for it: the command, the tree it runs in, or a refusal. Nothing else ever runs.
-export function gestureCommand(gesture, args, project) {
+export function gestureCommand(gesture, args, project, { kitSource = null } = {}) {
   const factory = project.status?.factory_tree ?? null;
   const kit = (script, ...rest) => ({ program: process.execPath, args: [join('scripts', 'warden', script), ...rest], show: `node scripts/warden/${script} ${rest.join(' ')}`.trim() });
   const inFactory = (command) => {
@@ -300,6 +310,12 @@ export function gestureCommand(gesture, args, project) {
     }
     case 'version.show':
       return { ...kit('version.mjs', 'show'), cwd: project.path };
+    case 'kit.update': {
+      // The newest kit installs itself, through the dock: its own script, run on this project.
+      if (!kitSource || compareVersions(project.kit?.version, kitSource.version) >= 0) throw new Error(t('ui_server.no_kit_update'));
+      const script = join(kitSource.dir, 'kit-update.mjs');
+      return { program: process.execPath, args: [script, 'deposit', '--project', project.path], show: `node ${script} deposit --project ${project.path}`, cwd: project.path };
+    }
     case 'release.build': {
       if (!/^[0-9a-f]{7,40}$/i.test(String(args.commit ?? ''))) throw new Error(t('ui_server.bad_commit'));
       return inFactory(kit('release.mjs', 'build', '--commit', args.commit));
@@ -399,7 +415,9 @@ export async function startServer({ port = 0, here = mainRoot(ROOT), listed = ()
       const newest = newestSeen(projects);
       const disksRead = await Promise.all(projects.map(quickDisk));
       const cases = projects.flatMap((p, i) => casesFor(p, { newestKit: newest?.version ?? null, newestFrom: newest?.from ?? 'kit', disk: disksRead[i] }));
-      return send(res, 200, { read_at: new Date().toISOString(), here, newest_kit: newest?.version ?? null, newest_from: newest?.from ?? null, projects, cases });
+      const source = updateSource(entries());
+      const update = source ? { version: source.version, from: source.from } : null;
+      return send(res, 200, { read_at: new Date().toISOString(), here, newest_kit: newest?.version ?? null, newest_from: newest?.from ?? null, update_kit: update, projects, cases });
     }
     const entry = known(url.searchParams.get('path'));
     if (route === 'POST /api/projects') {
@@ -458,7 +476,7 @@ export async function startServer({ port = 0, here = mainRoot(ROOT), listed = ()
       const { gesture, args = {} } = await body(req);
       let command;
       try {
-        command = gestureCommand(gesture, args, project);
+        command = gestureCommand(gesture, args, project, { kitSource: gesture === 'kit.update' ? updateSource(entries()) : null });
       } catch (error) {
         return send(res, 400, { error: error.message });
       }
