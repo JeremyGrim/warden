@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- The install has Git ignore `config/disk.local.json`, the budgets of one workstation: in a project that did not ignore it already, the file, once created, waited to be committed.
+
 ## 0.4.12 - 2026-11-24
 
 The npm advisories no longer fail on a misread of the workstation.

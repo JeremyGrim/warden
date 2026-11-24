@@ -280,7 +280,8 @@ function apply(root, plan) {
   }
   for (const path of plan.remove) rmSync(join(root, path), { force: true });
   const ignore = readText(join(root, '.gitignore')) ?? '';
-  const missing = ['.work/', '.input/'].filter((l) => !ignore.split(/\r?\n/).includes(l));
+  // config/disk.local.json names one workstation: never committed.
+  const missing = ['.work/', '.input/', 'config/disk.local.json'].filter((l) => !ignore.split(/\r?\n/).includes(l));
   if (missing.length) appendFileSync(join(root, '.gitignore'), `${ignore && !ignore.endsWith('\n') ? '\n' : ''}${missing.join('\n')}\n`);
   // A sh hook with Windows line endings no longer runs: the kit hooks stay LF, whatever workstation clones.
   const attributes = readText(join(root, '.gitattributes')) ?? '';

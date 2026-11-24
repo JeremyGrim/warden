@@ -51,6 +51,7 @@ test('the install writes the kit, its models adapted to the project, and turns t
   assert.deepEqual(factory.train.install, { lockfile: 'pnpm-lock.yaml', command: ['pnpm', 'install', '--frozen-lockfile'] });
   assert.match(read('AGENTS.md'), new RegExp(`Rules of the ${root.split(/[\\/]/).pop()} repository`));
   assert.match(read('.gitignore'), /^\.work\/$/m);
+  assert.match(read('.gitignore'), /^config\/disk\.local\.json$/m, 'the budgets of one workstation are never committed');
   assert.match(read('.gitattributes'), /^\.githooks\/\* text eol=lf$/m, 'the hooks stay LF');
   assert.equal(spawnSync('git', ['config', 'core.hooksPath'], { cwd: root, encoding: 'utf8' }).stdout.trim(), '.githooks');
   const check = spawnSync(process.execPath, ['scripts/warden/rules.mjs'], { cwd: root, encoding: 'utf8' });
