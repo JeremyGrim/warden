@@ -92,6 +92,7 @@ export const FR = {
   'npm.no_database': 'La base des avis manque : --database <clone de github/advisory-database>, WARDEN_GHSA_DATABASE ou git config warden.ghsa.',
   'npm.passed': 'Avis npm : rien de bloquant — {packages} paquets, {examined} avis examinés sur {advisories}, base {revision} ({hours} h).',
   'npm.failed': 'Avis npm : ÉCHEC — {packages} paquets, {examined} avis examinés sur {advisories}, base {revision} ({hours} h).',
+  'npm.misread': 'La première lecture de la base y voyait des changements, la seconde, sans le cache de dossiers de Git, aucun : une erreur de lecture du poste, pas un changement ({read}).',
   'npm.debt': 'dette nommée',
   'npm.unqualified': 'NON QUALIFIÉ',
 

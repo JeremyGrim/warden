@@ -2,7 +2,7 @@
 // dependency.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { compare, lockPackages, matchNpmAdvisory, npmVersionAffected, npmVersionInRange, valid } from './npm-audit.mjs';
+import { compare, databaseChanges, lockPackages, matchNpmAdvisory, npmVersionAffected, npmVersionInRange, valid } from './npm-audit.mjs';
 
 const range = (events) => ({ type: 'ECOSYSTEM', events });
 
@@ -87,6 +87,24 @@ test('the pnpm lockfile gives each package, scopes included, and refuses what ha
   assert.throws(() => lockPackages(lockfile.replace('vite@5.4.11:', "'local@file:../local':")), /Unqualified package/);
   assert.throws(() => lockPackages("lockfileVersion: '5.4'\npackages:\n  a@1.0.0:\n"), /format 6/);
   assert.throws(() => lockPackages("lockfileVersion: '9.0'\npackages:\n\nsnapshots:\n"), /Empty package inventory/);
+});
+
+test('a database read clean is read once; a misread is read again without the folder cache; a change stays', () => {
+  const reads = (...answers) => {
+    const asked = [];
+    const read = (extra) => { asked.push(extra); return answers[asked.length - 1]; };
+    return { asked, read };
+  };
+  let paused = 0;
+  const pause = () => { paused += 1; };
+  const clean = reads('');
+  assert.deepEqual(databaseChanges(clean.read, pause), { changes: '', misread: '' });
+  assert.deepEqual([clean.asked, paused], [[[]], 0], 'one read, no pause');
+  const misread = reads(' D advisories/github-reviewed/2026/07/GHSA-x/GHSA-x.json', '');
+  assert.deepEqual(databaseChanges(misread.read, pause), { changes: '', misread: ' D advisories/github-reviewed/2026/07/GHSA-x/GHSA-x.json' });
+  assert.deepEqual([misread.asked, paused], [[[], ['-c', 'core.fscache=false']], 1], 'read again, after a pause, without the cache');
+  const changed = reads(' M advisories/a.json', ' M advisories/a.json');
+  assert.deepEqual(databaseChanges(changed.read, pause), { changes: ' M advisories/a.json', misread: '' }, 'a real change fails');
 });
 
 test('a withdrawn advisory, or one of another ecosystem, raises no npm alert', () => {

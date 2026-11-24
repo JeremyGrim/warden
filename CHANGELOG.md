@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.12 - 2026-11-24
+
+The npm advisories no longer fail on a misread of the workstation.
+
+### Fixed
+
+- **A status of the advisory database that says something is read a second time**, two seconds later, without Git for Windows' folder cache (`core.fscache`); only the second read counts. Under the load of a train, the cache took a folder of the database for an empty one: Git said "could not open directory" and a file deleted, on a clone nobody had touched, and the check failed on the main branch at the start of two trains in a row. A change on disk stays, and still fails the check, now with the paths it found; a misread is said in one line and the check goes on.
+- The refresh of the database the script describes works on its shallow clone: `fetch --depth 1`, then `reset --hard origin/main`. The `pull --depth 1` it described refused, the new tip sharing no history with the old one.
+
 ## 0.4.11 - 2026-11-23
 
 A project Warden rules shows on the interface with no gesture.

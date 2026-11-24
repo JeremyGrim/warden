@@ -14,14 +14,15 @@
 // The clone lives outside the repository. Only advisories reviewed by GitHub are used, and it keeps only them:
 //   git clone --depth 1 --filter=blob:none --sparse https://github.com/github/advisory-database.git <folder>
 //   git -C <folder> sparse-checkout set advisories/github-reviewed
-// Refresh it before verifying: `git -C <folder> pull --depth 1`.
+// Refresh it before verifying: `git -C <folder> fetch --depth 1`, then `git -C <folder> reset --hard origin/main`. A
+// `pull` refuses: in a shallow clone, the new tip shares no history with the old one.
 //
 // What it does not tell: whether the vulnerable function is reached; anything beyond the database revision on the
 // workstation.
 
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -161,12 +162,38 @@ function* advisoryFiles(dir) {
 
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
-export function auditNpmLockLocally({ lockfile, database, now = new Date(), maxAgeHours = 48, ignore = [] }) {
+// Git for Windows keeps the folders it lists in a cache (`core.fscache`). Under the load of a train, it once took a
+// folder of the database for an empty one: `git status` said "could not open directory" and a file deleted, on a
+// clone nobody had touched, and the check failed on the main branch (Cortex, trains of 23 and 24 November 2026). A
+// change on disk stays; a misread does not. So a status that says something is read again, after a pause, without
+// that cache (the key means nothing to Git elsewhere); only the second read counts. `read(extra)` gives the status.
+export function databaseChanges(read, pause = () => {}) {
+  const first = read([]);
+  if (!first) return { changes: '', misread: '' };
+  pause();
+  const second = read(['-c', 'core.fscache=false']);
+  return { changes: second, misread: second ? '' : first };
+}
+
+const firstLines = (text) => text.split(/\r?\n/).filter(Boolean).slice(0, 5).join('; ');
+
+export function auditNpmLockLocally({ lockfile, database, now = new Date(), maxAgeHours = 48, ignore = [], pauseMs = 2000 }) {
   if (!(maxAgeHours > 0) || !Number.isFinite(maxAgeHours)) throw new Error('Invalid maximum database age');
   const git = (args) => execFileSync('git', ['-C', database, ...args], { encoding: 'utf8' }).trim();
+  // What Git printed besides the status ("could not open directory"), kept to say what was read.
+  const warnings = [];
+  const status = (extra) => {
+    const r = spawnSync('git', [...extra, '-C', database, 'status', '--porcelain', '--untracked-files=normal'], { encoding: 'utf8' });
+    if (r.error || r.status !== 0) throw new Error(`git status of the advisory database: ${(r.error?.message ?? r.stderr).trim()}`);
+    warnings.push(r.stderr.trim());
+    return r.stdout.trim();
+  };
+  const pause = () => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, pauseMs);
+  const read = databaseChanges(status, pause);
+  if (read.changes) throw new Error(`The advisory database has local changes, read twice: ${firstLines([read.changes, warnings.at(-1)].join('\n'))}`);
+  const misread = read.misread ? firstLines([read.misread, warnings[0]].join('\n')) : null;
   const revision = git(['rev-parse', 'HEAD']);
   const committedAt = git(['show', '-s', '--format=%cI', 'HEAD']);
-  if (git(['status', '--porcelain', '--untracked-files=normal'])) throw new Error('The advisory database has local changes');
   const ageHours = (now - new Date(committedAt)) / 3_600_000;
   const bytes = readFileSync(lockfile);
   const packages = lockPackages(bytes.toString('utf8'));
@@ -196,7 +223,7 @@ export function auditNpmLockLocally({ lockfile, database, now = new Date(), maxA
   const matches = [...findings.values()].map((f) => (named.has(f.id) ? { ...f, debt: true } : f));
   return { schemaVersion: 1, checkedAt: now.toISOString(),
     source: { url: 'https://github.com/github/advisory-database', revision, committedAt, ageHours,
-      maxAgeHours, license: 'CC-BY-4.0', networkDuringMatch: false },
+      maxAgeHours, license: 'CC-BY-4.0', networkDuringMatch: false, misread },
     lockfileSha256: sha256(bytes), matcherSha256: sha256(readFileSync(fileURLToPath(import.meta.url))),
     packageInstances: packages.length, uniquePackages: names.size, files, npmAdvisories, withdrawn,
     findings: matches, unqualified, examined,
@@ -226,6 +253,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     const ignore = (option(args, '--ignore') ?? '').split(',').map((s) => s.trim()).filter(Boolean);
     const result = auditNpmLockLocally({ lockfile, database, ignore });
     if (output) writeFileSync(output, `${JSON.stringify(result, null, 2)}\n`);
+    if (result.source.misread) console.log(t('npm.misread', { read: result.source.misread }));
     console.log(t(result.status === 'passed' ? 'npm.passed' : 'npm.failed', { packages: result.packageInstances, examined: result.examined.length,
       advisories: result.npmAdvisories, revision: result.source.revision.slice(0, 12), hours: Math.round(result.source.ageHours) }));
     for (const f of result.findings) console.log(`  ${f.severity.padEnd(8)} ${f.id}  ${f.package.name}@${f.package.version}  ${f.debt ? `[${t('npm.debt')}] ` : ''}${f.summary ?? ''}`);
